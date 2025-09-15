@@ -1,0 +1,145 @@
+import { useState, useEffect } from "react";
+import { FormField } from "@shared/schema";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Trash2 } from "lucide-react";
+
+interface FieldPropertiesPanelProps {
+  selectedField: FormField | null;
+  onUpdateField: (field: FormField) => void;
+}
+
+export default function FieldPropertiesPanel({ selectedField, onUpdateField }: FieldPropertiesPanelProps) {
+  const [localField, setLocalField] = useState<FormField | null>(null);
+
+  useEffect(() => {
+    setLocalField(selectedField);
+  }, [selectedField]);
+
+  if (!localField) {
+    return (
+      <div className="w-80 bg-card border-l border-border p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Field Properties</h3>
+        <p className="text-muted-foreground text-sm">Select a field to edit its properties</p>
+      </div>
+    );
+  }
+
+  const updateField = (updates: Partial<FormField>) => {
+    const updatedField = { ...localField, ...updates };
+    setLocalField(updatedField);
+    onUpdateField(updatedField);
+  };
+
+  const updateOption = (index: number, value: string) => {
+    const newOptions = [...(localField.options || [])];
+    newOptions[index] = value;
+    updateField({ options: newOptions });
+  };
+
+  const addOption = () => {
+    const newOptions = [...(localField.options || []), `Option ${(localField.options?.length || 0) + 1}`];
+    updateField({ options: newOptions });
+  };
+
+  const removeOption = (index: number) => {
+    const newOptions = localField.options?.filter((_, i) => i !== index) || [];
+    updateField({ options: newOptions });
+  };
+
+  const hasOptions = ['select', 'radio', 'checkbox'].includes(localField.type);
+
+  return (
+    <div className="w-80 bg-card border-l border-border p-6 overflow-y-auto">
+      <h3 className="text-lg font-semibold text-foreground mb-4">Field Properties</h3>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Field Label</label>
+          <Input
+            value={localField.label}
+            onChange={(e) => updateField({ label: e.target.value })}
+            placeholder="Enter field label"
+            data-testid="input-field-label"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Help Text</label>
+          <Textarea
+            value={localField.helpText || ''}
+            onChange={(e) => updateField({ helpText: e.target.value })}
+            placeholder="Optional help text"
+            rows={2}
+            className="resize-none"
+            data-testid="textarea-help-text"
+          />
+        </div>
+
+        {(localField.type === 'text' || localField.type === 'textarea' || localField.type === 'email' || localField.type === 'number') && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Placeholder</label>
+            <Input
+              value={localField.placeholder || ''}
+              onChange={(e) => updateField({ placeholder: e.target.value })}
+              placeholder="Enter placeholder text"
+              data-testid="input-placeholder"
+            />
+          </div>
+        )}
+        
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="required"
+            checked={localField.required}
+            onCheckedChange={(checked) => updateField({ required: !!checked })}
+            data-testid="checkbox-required"
+          />
+          <label htmlFor="required" className="text-sm font-medium text-foreground">
+            Required field
+          </label>
+        </div>
+        
+        {hasOptions && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Options</label>
+            <div className="space-y-2">
+              {localField.options?.map((option, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <Input
+                    value={option}
+                    onChange={(e) => updateOption(index, e.target.value)}
+                    placeholder={`Option ${index + 1}`}
+                    className="flex-1"
+                    data-testid={`input-option-${index}`}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeOption(index)}
+                    disabled={(localField.options?.length || 0) <= 1}
+                    data-testid={`button-remove-option-${index}`}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addOption}
+                className="w-full"
+                data-testid="button-add-option"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Option
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
