@@ -12,6 +12,7 @@ export interface IStorage {
 
   // Form Responses
   getFormResponse(id: string): Promise<FormResponse | undefined>;
+  getAllFormResponses(): Promise<FormResponse[]>;
   getFormResponsesByTemplateId(templateId: string): Promise<FormResponse[]>;
   createFormResponse(response: InsertFormResponse): Promise<FormResponse>;
   deleteFormResponse(id: string): Promise<boolean>;
@@ -104,6 +105,11 @@ export class MemStorage implements IStorage {
 
   async getFormResponse(id: string): Promise<FormResponse | undefined> {
     return this.formResponses.get(id);
+  }
+
+  async getAllFormResponses(): Promise<FormResponse[]> {
+    return Array.from(this.formResponses.values())
+      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
   }
 
   async getFormResponsesByTemplateId(templateId: string): Promise<FormResponse[]> {

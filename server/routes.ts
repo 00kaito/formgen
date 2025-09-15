@@ -90,6 +90,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/form-responses", async (req, res) => {
+    try {
+      const { formTemplateId } = req.query;
+      if (formTemplateId && typeof formTemplateId === 'string') {
+        const responses = await storage.getFormResponsesByTemplateId(formTemplateId);
+        res.json(responses);
+      } else {
+        const responses = await storage.getAllFormResponses();
+        res.json(responses);
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch form responses" });
+    }
+  });
+
   app.post("/api/form-responses", async (req, res) => {
     try {
       const validatedData = insertFormResponseSchema.parse(req.body);
