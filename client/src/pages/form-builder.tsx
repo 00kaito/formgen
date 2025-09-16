@@ -11,6 +11,7 @@ import type { FormField, FormTemplate, InsertFormTemplate } from "@shared/schema
 import FormFieldPalette from "@/components/form-field-palette";
 import FormFieldRenderer from "@/components/form-field-renderer";
 import FieldPropertiesPanel from "@/components/field-properties-panel";
+import MarkdownFormConverter from "@/components/markdown-form-converter";
 import { LayersIcon } from "lucide-react";
 
 export default function FormBuilder() {
@@ -101,6 +102,10 @@ export default function FormBuilder() {
     setFormFields([...formFields, field]);
   };
 
+  const handleMarkdownFields = (fields: FormField[]) => {
+    setFormFields([...formFields, ...fields]);
+  };
+
   const handleUpdateField = (updatedField: FormField) => {
     setFormFields(formFields.map(field => 
       field.id === updatedField.id ? updatedField : field
@@ -156,6 +161,7 @@ export default function FormBuilder() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <MarkdownFormConverter onFieldsConverted={handleMarkdownFields} />
               <Button variant="outline" onClick={handlePreview} data-testid="button-preview">
                 <Eye className="w-4 h-4 mr-2" />
                 Preview
