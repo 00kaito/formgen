@@ -12,6 +12,7 @@ export interface IStorage {
 
   // Form Responses
   getFormResponse(id: string): Promise<FormResponse | undefined>;
+  getFormResponseByShareableLink(shareableResponseLink: string): Promise<FormResponse | undefined>;
   getAllFormResponses(): Promise<FormResponse[]>;
   getFormResponsesByTemplateId(templateId: string): Promise<FormResponse[]>;
   createFormResponse(response: InsertFormResponse): Promise<FormResponse>;
@@ -143,6 +144,12 @@ export class MemStorage implements IStorage {
     return this.formResponses.get(id);
   }
 
+  async getFormResponseByShareableLink(shareableResponseLink: string): Promise<FormResponse | undefined> {
+    return Array.from(this.formResponses.values()).find(
+      (response) => response.shareableResponseLink === shareableResponseLink
+    );
+  }
+
   async getAllFormResponses(): Promise<FormResponse[]> {
     return Array.from(this.formResponses.values())
       .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
@@ -156,10 +163,12 @@ export class MemStorage implements IStorage {
 
   async createFormResponse(insertResponse: InsertFormResponse): Promise<FormResponse> {
     const id = randomUUID();
+    const shareableResponseLink = randomUUID();
     
     const response: FormResponse = {
       ...insertResponse,
       id,
+      shareableResponseLink,
       isComplete: insertResponse.isComplete || false,
       submittedAt: new Date(),
     };

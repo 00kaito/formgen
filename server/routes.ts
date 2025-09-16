@@ -260,6 +260,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/response/:shareableResponseLink", async (req, res) => {
+    try {
+      const response = await dbStorage.getFormResponseByShareableLink(req.params.shareableResponseLink);
+      if (!response) {
+        return res.status(404).json({ message: "Response not found" });
+      }
+      
+      // Also fetch the form template to get field definitions
+      const template = await dbStorage.getFormTemplate(response.formTemplateId);
+      if (!template) {
+        return res.status(404).json({ message: "Form template not found" });
+      }
+
+      res.json({
+        response,
+        template
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch response" });
+    }
+  });
+
   app.post("/api/form-templates", async (req, res) => {
     try {
       const validatedData = insertFormTemplateSchema.parse(req.body);

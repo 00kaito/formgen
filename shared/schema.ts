@@ -19,6 +19,7 @@ export const formResponses = pgTable("form_responses", {
   formTemplateId: varchar("form_template_id").notNull().references(() => formTemplates.id, { onDelete: "cascade" }),
   responses: jsonb("responses").notNull().$type<Record<string, any>>(),
   isComplete: boolean("is_complete").notNull().default(false),
+  shareableResponseLink: varchar("shareable_response_link").notNull().unique(),
   submittedAt: timestamp("submitted_at").notNull().default(sql`now()`),
 });
 
@@ -55,6 +56,7 @@ export const insertFormTemplateSchema = createInsertSchema(formTemplates).omit({
 export const insertFormResponseSchema = createInsertSchema(formResponses).omit({
   id: true,
   submittedAt: true,
+  shareableResponseLink: true,
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

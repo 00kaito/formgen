@@ -12,6 +12,7 @@ import PublicForm from "@/pages/public-form";
 import ResponsesView from "@/pages/responses-view";
 import Analytics from "@/pages/analytics";
 import AuthPage from "@/pages/auth-page";
+import ResponseView from "@/pages/response-view";
 
 function Router() {
   return (
@@ -21,6 +22,9 @@ function Router() {
       
       {/* Public route for form submission */}
       <Route path="/form/:shareableLink" component={PublicForm} />
+      
+      {/* Public route for response viewing */}
+      <Route path="/response/:shareableResponseLink" component={ResponseView} />
       
       {/* Protected admin routes */}
       <Route path="/">

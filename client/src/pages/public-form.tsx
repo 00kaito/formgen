@@ -10,7 +10,7 @@ import { Form } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import FormFieldRenderer from "@/components/form-field-renderer";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, CheckCircle, ExternalLink } from "lucide-react";
 import type { FormField, FormTemplate } from "@shared/schema";
 
 // Create dynamic form schema based on form fields
@@ -92,7 +92,7 @@ const createFormSchema = (fields: FormField[]) => {
 };
 
 // Form component that gets properly remounted when template changes
-function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSuccess: () => void }) {
+function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSuccess: (responseData: any) => void }) {
   const { toast } = useToast();
   const formSchema = createFormSchema(template.fields);
   
@@ -109,17 +109,17 @@ function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSu
         isComplete: true,
       });
     },
-    onSuccess: () => {
-      onSuccess();
+    onSuccess: (responseData) => {
+      onSuccess(responseData);
       toast({
-        title: "Form submitted successfully!",
-        description: "Thank you for your response.",
+        title: "Formularz został przesłany pomyślnie!",
+        description: "Dziękujemy za odpowiedź.",
       });
     },
     onError: () => {
       toast({
-        title: "Failed to submit form",
-        description: "Please try again",
+        title: "Nie udało się przesłać formularza",
+        description: "Spróbuj ponownie",
         variant: "destructive",
       });
     },
@@ -175,6 +175,8 @@ function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSu
 export default function PublicForm() {
   const { shareableLink } = useParams<{ shareableLink: string }>();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [responseData, setResponseData] = useState<any>(null);
+  const { toast } = useToast();
 
   const { data: formTemplate, isLoading, error } = useQuery<FormTemplate>({
     queryKey: ["/api/public-forms", shareableLink],
@@ -203,20 +205,92 @@ export default function PublicForm() {
     );
   }
 
-  if (isSubmitted) {
+  if (isSubmitted && responseData) {
+    const responseLink = `${window.location.origin}/response/${responseData.shareableResponseLink}`;
+    
+    const copyToClipboard = async () => {
+      try {
+        await navigator.clipboard.writeText(responseLink);
+        toast({
+          title: "Link skopiowany!",
+          description: "Link do odpowiedzi został skopiowany do schowka.",
+        });
+      } catch (err) {
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = responseLink;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        toast({
+          title: "Link skopiowany!",
+          description: "Link do odpowiedzi został skopiowany do schowka.",
+        });
+      }
+    };
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md mx-4">
-          <CardContent className="pt-6 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+        <Card className="w-full max-w-2xl mx-4">
+          <CardContent className="pt-8 pb-8 px-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h1 className="text-3xl font-bold text-foreground mb-4" data-testid="text-success-title">
+                Dziękujemy!
+              </h1>
+              <p className="text-lg text-muted-foreground mb-6" data-testid="text-success-description">
+                Twoja odpowiedź została pomyślnie przesłana.
+              </p>
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-4">Thank You!</h1>
-            <p className="text-muted-foreground">
-              Your response has been submitted successfully.
-            </p>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+              <h2 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
+                <ExternalLink className="w-5 h-5 mr-2" />
+                Link do Twojej odpowiedzi
+              </h2>
+              <p className="text-sm text-blue-700 mb-4">
+                Zachowaj ten link, aby móc w przyszłości przeglądać swoją odpowiedź:
+              </p>
+              
+              <div className="flex items-center space-x-2 p-3 bg-white border border-blue-300 rounded">
+                <input 
+                  type="text" 
+                  value={responseLink} 
+                  readOnly 
+                  className="flex-1 text-sm bg-transparent border-none outline-none text-blue-800"
+                  data-testid="input-response-link"
+                />
+                <Button
+                  onClick={copyToClipboard}
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0"
+                  data-testid="button-copy-link"
+                >
+                  <Copy className="w-4 h-4 mr-1" />
+                  Kopiuj
+                </Button>
+              </div>
+              
+              <div className="mt-4">
+                <Button
+                  onClick={() => window.open(responseLink, '_blank')}
+                  variant="default"
+                  className="w-full"
+                  data-testid="button-view-response"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Wyświetl odpowiedź
+                </Button>
+              </div>
+            </div>
+            
+            <div className="text-center text-sm text-muted-foreground">
+              <p>💡 Tip: Dodaj ten link do zakładek, aby szybko wrócić do swojej odpowiedzi</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -239,7 +313,14 @@ export default function PublicForm() {
         </div>
 
         {/* Form */}
-        <PublicFormInner key={formTemplate.id} template={formTemplate} onSuccess={() => setIsSubmitted(true)} />
+        <PublicFormInner 
+          key={formTemplate.id} 
+          template={formTemplate} 
+          onSuccess={(data) => {
+            setResponseData(data);
+            setIsSubmitted(true);
+          }} 
+        />
       </div>
     </div>
   );
