@@ -103,23 +103,24 @@ function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSu
 
   const submitMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      return apiRequest("POST", "/api/form-responses", {
+      const response = await apiRequest("POST", "/api/form-responses", {
         formTemplateId: template.id,
         responses: data,
         isComplete: true,
       });
+      return response.json();
     },
     onSuccess: (responseData) => {
       onSuccess(responseData);
       toast({
-        title: "Formularz został przesłany pomyślnie!",
-        description: "Dziękujemy za odpowiedź.",
+        title: "Form submitted successfully!",
+        description: "Thank you for your response.",
       });
     },
     onError: () => {
       toast({
-        title: "Nie udało się przesłać formularza",
-        description: "Spróbuj ponownie",
+        title: "Failed to submit form",
+        description: "Please try again",
         variant: "destructive",
       });
     },
@@ -212,8 +213,8 @@ export default function PublicForm() {
       try {
         await navigator.clipboard.writeText(responseLink);
         toast({
-          title: "Link skopiowany!",
-          description: "Link do odpowiedzi został skopiowany do schowka.",
+          title: "Link copied!",
+          description: "Response link has been copied to clipboard.",
         });
       } catch (err) {
         // Fallback for browsers that don't support clipboard API
@@ -224,8 +225,8 @@ export default function PublicForm() {
         document.execCommand('copy');
         document.body.removeChild(textArea);
         toast({
-          title: "Link skopiowany!",
-          description: "Link do odpowiedzi został skopiowany do schowka.",
+          title: "Link copied!",
+          description: "Response link has been copied to clipboard.",
         });
       }
     };
@@ -239,20 +240,20 @@ export default function PublicForm() {
                 <CheckCircle className="w-8 h-8 text-green-600" />
               </div>
               <h1 className="text-3xl font-bold text-foreground mb-4" data-testid="text-success-title">
-                Dziękujemy!
+                Thank you!
               </h1>
               <p className="text-lg text-muted-foreground mb-6" data-testid="text-success-description">
-                Twoja odpowiedź została pomyślnie przesłana.
+                Your response has been successfully submitted.
               </p>
             </div>
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
               <h2 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
                 <ExternalLink className="w-5 h-5 mr-2" />
-                Link do Twojej odpowiedzi
+                Your Response Link
               </h2>
               <p className="text-sm text-blue-700 mb-4">
-                Zachowaj ten link, aby móc w przyszłości przeglądać swoją odpowiedź:
+                Save this link to view your response in the future:
               </p>
               
               <div className="flex items-center space-x-2 p-3 bg-white border border-blue-300 rounded">
@@ -271,7 +272,7 @@ export default function PublicForm() {
                   data-testid="button-copy-link"
                 >
                   <Copy className="w-4 h-4 mr-1" />
-                  Kopiuj
+                  Copy
                 </Button>
               </div>
               
@@ -283,13 +284,13 @@ export default function PublicForm() {
                   data-testid="button-view-response"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
-                  Wyświetl odpowiedź
+                  View Response
                 </Button>
               </div>
             </div>
             
             <div className="text-center text-sm text-muted-foreground">
-              <p>💡 Tip: Dodaj ten link do zakładek, aby szybko wrócić do swojej odpowiedzi</p>
+              <p>💡 Tip: Bookmark this link to quickly return to your response</p>
             </div>
           </CardContent>
         </Card>

@@ -29,22 +29,22 @@ export default function AuthPage() {
     setError("");
 
     if (!username.trim() || !password.trim()) {
-      setError("Proszę wypełnić wszystkie pola");
+      setError("Please fill in all fields");
       return;
     }
 
     try {
       await login(username, password);
       toast({
-        title: "Zalogowano pomyślnie",
-        description: "Witaj w systemie zarządzania formularzami",
+        title: "Login successful",
+        description: "Welcome to the form management system",
       });
       setLocation("/");
     } catch (err: any) {
-      const errorMessage = err.message || "Błąd logowania. Sprawdź dane uwierzytelniające.";
+      const errorMessage = err.message || "Login failed. Please check your credentials.";
       setError(errorMessage);
       toast({
-        title: "Błąd logowania",
+        title: "Login failed",
         description: errorMessage,
         variant: "destructive",
       });
@@ -60,10 +60,10 @@ export default function AuthPage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Zaloguj się
+            Sign In
           </CardTitle>
           <CardDescription className="text-gray-600 dark:text-gray-400">
-            Wprowadź swoje dane uwierzytelniające aby uzyskać dostęp do systemu
+            Enter your credentials to access the system
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -77,14 +77,14 @@ export default function AuthPage() {
             
             <div className="space-y-2">
               <Label htmlFor="username" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Nazwa użytkownika
+                Username
               </Label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="username"
                   type="text"
-                  placeholder="Wprowadź nazwę użytkownika"
+                  placeholder="Enter your username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="pl-10"
@@ -96,14 +96,14 @@ export default function AuthPage() {
             
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Hasło
+                Password
               </Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Wprowadź hasło"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10"
@@ -119,19 +119,9 @@ export default function AuthPage() {
               disabled={isLoading}
               data-testid="button-login"
             >
-              {isLoading ? "Logowanie..." : "Zaloguj się"}
+              {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Dane demonstracyjne:
-            </h3>
-            <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-              <div><strong>Użytkownik:</strong> admin</div>
-              <div><strong>Hasło:</strong> Procesy123</div>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
