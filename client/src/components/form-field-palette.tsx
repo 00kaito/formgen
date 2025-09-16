@@ -1,5 +1,5 @@
 import { FormField, FormFieldType } from "@shared/schema";
-import { Type, AlignLeft, ChevronDown, Circle, CheckSquare, Mail, Hash, Calendar, Upload } from "lucide-react";
+import { Type, AlignLeft, ChevronDown, Circle, CheckSquare, Mail, Hash, Calendar, Upload, Table } from "lucide-react";
 
 interface FormFieldPaletteProps {
   onAddField: (field: FormField) => void;
@@ -65,6 +65,12 @@ export default function FormFieldPalette({ onAddField }: FormFieldPaletteProps) 
       icon: <Upload className="text-primary" />,
       label: 'File Upload',
       description: 'Upload documents or images'
+    },
+    {
+      type: 'table',
+      icon: <Table className="text-primary" />,
+      label: 'Tabela',
+      description: 'Interaktywna tabela z kolumnami'
     }
   ];
 
@@ -100,6 +106,12 @@ export default function FormFieldPalette({ onAddField }: FormFieldPaletteProps) 
           acceptedFileTypes: ['.pdf', '.doc', '.docx', '.jpg', '.png'],
           maxFileSize: 10,
           multiple: false
+        };
+      case 'table':
+        return {
+          ...baseField,
+          label: 'Tabela danych',
+          columns: ['Kolumna 1', 'Kolumna 2', 'Kolumna 3']
         };
       default:
         return baseField;

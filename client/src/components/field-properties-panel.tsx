@@ -51,6 +51,7 @@ export default function FieldPropertiesPanel({ selectedField, onUpdateField }: F
 
   const hasOptions = ['select', 'radio', 'checkbox'].includes(localField.type);
   const isFileField = localField.type === 'file';
+  const isTableField = localField.type === 'table';
 
   const updateFileType = (index: number, value: string) => {
     const newTypes = [...(localField.acceptedFileTypes || [])];
@@ -66,6 +67,22 @@ export default function FieldPropertiesPanel({ selectedField, onUpdateField }: F
   const removeFileType = (index: number) => {
     const newTypes = localField.acceptedFileTypes?.filter((_, i) => i !== index) || [];
     updateField({ acceptedFileTypes: newTypes });
+  };
+
+  const updateColumn = (index: number, value: string) => {
+    const newColumns = [...(localField.columns || [])];
+    newColumns[index] = value;
+    updateField({ columns: newColumns });
+  };
+
+  const addColumn = () => {
+    const newColumns = [...(localField.columns || []), `Kolumna ${(localField.columns?.length || 0) + 1}`];
+    updateField({ columns: newColumns });
+  };
+
+  const removeColumn = (index: number) => {
+    const newColumns = localField.columns?.filter((_, i) => i !== index) || [];
+    updateField({ columns: newColumns });
   };
 
   return (
@@ -152,6 +169,44 @@ export default function FieldPropertiesPanel({ selectedField, onUpdateField }: F
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Option
+              </Button>
+            </div>
+          </div>
+        )}
+        
+        {isTableField && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Kolumny tabeli</label>
+            <div className="space-y-2">
+              {localField.columns?.map((column, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <Input
+                    value={column}
+                    onChange={(e) => updateColumn(index, e.target.value)}
+                    placeholder={`Kolumna ${index + 1}`}
+                    className="flex-1"
+                    data-testid={`input-column-${index}`}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeColumn(index)}
+                    disabled={(localField.columns?.length || 0) <= 1}
+                    data-testid={`button-remove-column-${index}`}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addColumn}
+                className="w-full"
+                data-testid="button-add-column"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Dodaj kolumnę
               </Button>
             </div>
           </div>
