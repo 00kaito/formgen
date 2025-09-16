@@ -30,6 +30,20 @@ export interface IStorage {
     activeLinks: number;
     completionRate: number;
   }>;
+
+  getAnalytics(templateId?: string): Promise<{
+    submissionTrends: { date: string; count: number }[];
+    topForms: { formId: string; title: string; responses: number }[];
+    completionRates: { formId: string; title: string; rate: number }[];
+    recentActivity: { 
+      formTitle: string; 
+      responseId: string; 
+      submittedAt: Date; 
+      isComplete: boolean;
+    }[];
+    timeOfDayDistribution: { hour: number; count: number }[];
+    averageCompletionTime?: number;
+  }>;
 }
 
 export class MemStorage implements IStorage {
@@ -167,6 +181,119 @@ export class MemStorage implements IStorage {
       totalResponses: responses.length,
       activeLinks: activeTemplates.length,
       completionRate: responses.length > 0 ? Math.round((completeResponses.length / responses.length) * 100) : 0,
+    };
+  }
+
+  async getAnalytics(templateId?: string): Promise<{
+    submissionTrends: { date: string; count: number }[];
+    topForms: { formId: string; title: string; responses: number }[];
+    completionRates: { formId: string; title: string; rate: number }[];
+    recentActivity: { 
+      formTitle: string; 
+      responseId: string; 
+      submittedAt: Date; 
+      isComplete: boolean;
+    }[];
+    timeOfDayDistribution: { hour: number; count: number }[];
+    averageCompletionTime?: number;
+  }> {
+    const templates = Array.from(this.formTemplates.values());
+    let responses = Array.from(this.formResponses.values());
+    
+    // Filter by templateId if provided
+    if (templateId) {
+      responses = responses.filter(r => r.formTemplateId === templateId);
+    }
+
+    // Submission trends (last 30 days)
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const trendsMap = new Map<string, number>();
+    
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      trendsMap.set(dateStr, 0);
+    }
+    
+    responses.forEach(response => {
+      const dateStr = new Date(response.submittedAt).toISOString().split('T')[0];
+      if (trendsMap.has(dateStr)) {
+        trendsMap.set(dateStr, trendsMap.get(dateStr)! + 1);
+      }
+    });
+    
+    const submissionTrends = Array.from(trendsMap.entries()).map(([date, count]) => ({
+      date,
+      count
+    }));
+
+    // Top forms by response count
+    const formResponseCounts = new Map<string, number>();
+    responses.forEach(response => {
+      const count = formResponseCounts.get(response.formTemplateId) || 0;
+      formResponseCounts.set(response.formTemplateId, count + 1);
+    });
+    
+    const topForms = Array.from(formResponseCounts.entries())
+      .map(([formId, responseCount]) => {
+        const template = templates.find(t => t.id === formId);
+        return {
+          formId,
+          title: template?.title || 'Unknown Form',
+          responses: responseCount
+        };
+      })
+      .sort((a, b) => b.responses - a.responses)
+      .slice(0, 10);
+
+    // Completion rates by form
+    const completionRates = templates.map(template => {
+      const templateResponses = responses.filter(r => r.formTemplateId === template.id);
+      const completeResponses = templateResponses.filter(r => r.isComplete);
+      const rate = templateResponses.length > 0 
+        ? Math.round((completeResponses.length / templateResponses.length) * 100) 
+        : 0;
+      
+      return {
+        formId: template.id,
+        title: template.title,
+        rate
+      };
+    }).sort((a, b) => b.rate - a.rate);
+
+    // Recent activity (last 20 responses)
+    const recentActivity = responses
+      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+      .slice(0, 20)
+      .map(response => {
+        const template = templates.find(t => t.id === response.formTemplateId);
+        return {
+          formTitle: template?.title || 'Unknown Form',
+          responseId: response.id,
+          submittedAt: response.submittedAt,
+          isComplete: response.isComplete
+        };
+      });
+
+    // Time of day distribution
+    const hourCounts = new Array(24).fill(0);
+    responses.forEach(response => {
+      const hour = new Date(response.submittedAt).getHours();
+      hourCounts[hour]++;
+    });
+    
+    const timeOfDayDistribution = hourCounts.map((count, hour) => ({
+      hour,
+      count
+    }));
+
+    return {
+      submissionTrends,
+      topForms,
+      completionRates,
+      recentActivity,
+      timeOfDayDistribution,
     };
   }
 }

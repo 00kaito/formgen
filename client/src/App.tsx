@@ -8,11 +8,13 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import FormBuilder from "@/pages/form-builder";
 import PublicForm from "@/pages/public-form";
 import ResponsesView from "@/pages/responses-view";
+import Analytics from "@/pages/analytics";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={AdminDashboard} />
+      <Route path="/analytics" component={Analytics} />
       <Route path="/form-builder" component={FormBuilder} />
       <Route path="/form-builder/:id" component={FormBuilder} />
       <Route path="/form/:shareableLink" component={PublicForm} />

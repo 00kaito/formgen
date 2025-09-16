@@ -149,6 +149,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/analytics", async (req, res) => {
+    try {
+      const { templateId } = req.query;
+      const analytics = await storage.getAnalytics(typeof templateId === 'string' ? templateId : undefined);
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
   // Export Routes
   app.get("/api/form-templates/:id/export", async (req, res) => {
     try {

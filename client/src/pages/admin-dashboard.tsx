@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { LayersIcon, Plus, Eye, Edit, Trash2, Link as LinkIcon } from "lucide-react";
+import { LayersIcon, Plus, Eye, Edit, Trash2, Link as LinkIcon, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -87,6 +87,12 @@ export default function AdminDashboard() {
                 <Button variant="secondary" size="sm">
                   Dashboard
                 </Button>
+                <Link href="/analytics">
+                  <Button variant="ghost" size="sm" data-testid="button-analytics">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Analytics
+                  </Button>
+                </Link>
               </nav>
             </div>
             <div className="flex items-center space-x-3">
