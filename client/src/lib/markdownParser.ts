@@ -58,6 +58,81 @@ export class MarkdownFormParser {
   }
 
   /**
+   * Export FormFields back to markdown format
+   * This is the inverse of parseMarkdown - converts form fields to markdown syntax
+   */
+  static exportToMarkdown(fields: FormField[], formTitle?: string, formDescription?: string): string {
+    let markdown = '';
+
+    // Add form title and description if provided
+    if (formTitle) {
+      markdown += `# ${formTitle}\n\n`;
+    }
+    if (formDescription) {
+      markdown += `${formDescription}\n\n`;
+    }
+
+    // Convert each field to markdown format
+    fields.forEach(field => {
+      // Field label as header
+      markdown += `## ${field.label}\n`;
+
+      // Field type and required status
+      let fieldLine = `[${field.type}]`;
+      if (field.required) {
+        fieldLine += ' (required)';
+      }
+
+      // Add properties if they exist
+      const properties: Record<string, any> = {};
+      
+      if (field.placeholder) {
+        properties.placeholder = field.placeholder;
+      }
+      
+      // Handle options for select/radio/checkbox fields - these MUST have options for re-import compatibility
+      if (field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') {
+        if (field.options && field.options.length > 0) {
+          properties.options = field.options;
+        } else {
+          // Ensure compatibility - add empty options array with warning comment
+          properties.options = [];
+          console.warn(`Field '${field.label}' of type '${field.type}' has no options. Added empty array for re-import compatibility.`);
+        }
+      } else if (field.options && field.options.length > 0) {
+        // For non-option fields that somehow have options, still include them
+        properties.options = field.options;
+      }
+      
+      if (field.acceptedFileTypes && field.acceptedFileTypes.length > 0) {
+        properties.acceptedFileTypes = field.acceptedFileTypes;
+      }
+      if (field.maxFileSize) {
+        properties.maxFileSize = field.maxFileSize;
+      }
+      if (field.multiple) {
+        properties.multiple = field.multiple;
+      }
+
+      // Add properties to field line if any exist
+      if (Object.keys(properties).length > 0) {
+        fieldLine += ` ${JSON.stringify(properties)}`;
+      }
+
+      markdown += `${fieldLine}\n`;
+
+      // Add help text if it exists
+      if (field.helpText) {
+        markdown += `${field.helpText}\n`;
+      }
+
+      markdown += '\n'; // Add extra line between fields
+    });
+
+    return markdown.trim();
+  }
+
+  /**
    * Split markdown into sections, each starting with ##
    */
   private static splitIntoSections(markdown: string): string[] {
@@ -235,6 +310,10 @@ export class MarkdownFormParser {
         if (properties.options) {
           if (Array.isArray(properties.options)) {
             field.options = properties.options.map(String);
+            // Allow empty arrays but warn about them for better UX
+            if (field.options.length === 0) {
+              console.warn(`Field '${field.label}' of type '${field.type}' has empty options array. Consider adding options for better user experience.`);
+            }
           } else {
             throw new Error('Opcje muszą być tablicą');
           }
@@ -327,6 +406,163 @@ Zaznacz wszystkie, które dotyczą Ciebie`,
       file: `## Przesyłanie CV
 [file] (required) {"acceptedFileTypes": [".pdf", ".doc", ".docx"], "maxFileSize": 5, "multiple": false}
 Prześlij swoje CV (plik PDF lub Word)`
+    };
+  }
+
+  /**
+   * Validate export fidelity by testing roundtrip compatibility
+   * Exports fields to markdown and re-imports to ensure data integrity
+   */
+  static validateExportFidelity(fields: FormField[], formTitle?: string, formDescription?: string): {
+    isValid: boolean;
+    errors: Array<{ fieldId: string; fieldLabel: string; property: string; original: any; reimported: any; error: string }>;
+    warnings: Array<{ fieldId: string; fieldLabel: string; message: string }>;
+  } {
+    const errors: Array<{ fieldId: string; fieldLabel: string; property: string; original: any; reimported: any; error: string }> = [];
+    const warnings: Array<{ fieldId: string; fieldLabel: string; message: string }> = [];
+    
+    try {
+      // Export to markdown
+      const exportedMarkdown = this.exportToMarkdown(fields, formTitle, formDescription);
+      
+      // Re-import from markdown
+      const parseResult = this.parseMarkdown(exportedMarkdown);
+      const reimportedFields = parseResult.fields;
+      
+      // Check for parser errors during re-import
+      if (parseResult.errors.length > 0) {
+        parseResult.errors.forEach(error => {
+          warnings.push({
+            fieldId: 'unknown',
+            fieldLabel: error.section,
+            message: `Parse error during re-import: ${error.error}`
+          });
+        });
+      }
+      
+      // Compare field count
+      if (fields.length !== reimportedFields.length) {
+        errors.push({
+          fieldId: 'form',
+          fieldLabel: 'Form',
+          property: 'fieldCount',
+          original: fields.length,
+          reimported: reimportedFields.length,
+          error: 'Field count mismatch after roundtrip'
+        });
+        return { isValid: false, errors, warnings };
+      }
+      
+      // Compare each field
+      for (let i = 0; i < fields.length; i++) {
+        const original = fields[i];
+        const reimported = reimportedFields[i];
+        
+        // Compare basic properties
+        const propertiesToCheck = ['type', 'label', 'required', 'placeholder', 'helpText', 'maxFileSize', 'multiple'];
+        
+        for (const prop of propertiesToCheck) {
+          const originalValue = (original as any)[prop];
+          const reimportedValue = (reimported as any)[prop];
+          
+          if (originalValue !== reimportedValue) {
+            errors.push({
+              fieldId: original.id,
+              fieldLabel: original.label,
+              property: prop,
+              original: originalValue,
+              reimported: reimportedValue,
+              error: `Property '${prop}' does not match after roundtrip`
+            });
+          }
+        }
+        
+        // Compare arrays (options, acceptedFileTypes)
+        const arrayPropsToCheck = ['options', 'acceptedFileTypes'];
+        
+        for (const prop of arrayPropsToCheck) {
+          const originalArray = (original as any)[prop];
+          const reimportedArray = (reimported as any)[prop];
+          
+          if (originalArray || reimportedArray) {
+            if (!originalArray && reimportedArray) {
+              // Original was undefined/null but reimported has a value
+              if (reimportedArray.length > 0 || (prop === 'options' && (original.type === 'select' || original.type === 'radio' || original.type === 'checkbox'))) {
+                errors.push({
+                  fieldId: original.id,
+                  fieldLabel: original.label,
+                  property: prop,
+                  original: originalArray,
+                  reimported: reimportedArray,
+                  error: `Property '${prop}' was added during roundtrip`
+                });
+              }
+            } else if (originalArray && !reimportedArray) {
+              errors.push({
+                fieldId: original.id,
+                fieldLabel: original.label,
+                property: prop,
+                original: originalArray,
+                reimported: reimportedArray,
+                error: `Property '${prop}' was lost during roundtrip`
+              });
+            } else if (originalArray && reimportedArray) {
+              // Both exist - compare arrays
+              if (originalArray.length !== reimportedArray.length) {
+                errors.push({
+                  fieldId: original.id,
+                  fieldLabel: original.label,
+                  property: prop,
+                  original: originalArray,
+                  reimported: reimportedArray,
+                  error: `Array length mismatch in '${prop}' after roundtrip`
+                });
+              } else {
+                // Compare array contents
+                for (let j = 0; j < originalArray.length; j++) {
+                  if (originalArray[j] !== reimportedArray[j]) {
+                    errors.push({
+                      fieldId: original.id,
+                      fieldLabel: original.label,
+                      property: `${prop}[${j}]`,
+                      original: originalArray[j],
+                      reimported: reimportedArray[j],
+                      error: `Array item at index ${j} in '${prop}' does not match after roundtrip`
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // Special validation for fields that require options
+        if ((original.type === 'select' || original.type === 'radio' || original.type === 'checkbox')) {
+          if (!reimported.options || reimported.options.length === 0) {
+            warnings.push({
+              fieldId: original.id,
+              fieldLabel: original.label,
+              message: `Field of type '${original.type}' has empty options after roundtrip. Users won't be able to make selections.`
+            });
+          }
+        }
+      }
+      
+    } catch (error) {
+      errors.push({
+        fieldId: 'export',
+        fieldLabel: 'Export Process',
+        property: 'execution',
+        original: 'success',
+        reimported: 'failure',
+        error: `Export/import roundtrip failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings
     };
   }
 

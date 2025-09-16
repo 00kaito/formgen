@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Save, Eye, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Eye, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import FormFieldPalette from "@/components/form-field-palette";
 import FormFieldRenderer from "@/components/form-field-renderer";
 import FieldPropertiesPanel from "@/components/field-properties-panel";
 import MarkdownFormConverter from "@/components/markdown-form-converter";
+import { MarkdownFormParser } from "@/lib/markdownParser";
 import { LayersIcon } from "lucide-react";
 
 export default function FormBuilder() {
@@ -132,6 +133,96 @@ export default function FormBuilder() {
     }
   };
 
+  const handleExportMarkdown = () => {
+    if (formFields.length === 0) {
+      toast({
+        title: "Brak pól do eksportu",
+        description: "Dodaj pola do formularza przed eksportem do markdown",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Run fidelity validation before export
+      const validation = MarkdownFormParser.validateExportFidelity(
+        formFields,
+        formTitle || undefined,
+        formDescription || undefined
+      );
+      
+      // Show validation results to user
+      if (!validation.isValid) {
+        let errorMessage = `Znaleziono ${validation.errors.length} błędów podczas walidacji eksportu:\n`;
+        validation.errors.slice(0, 3).forEach(error => {
+          errorMessage += `• ${error.fieldLabel}: ${error.error}\n`;
+        });
+        if (validation.errors.length > 3) {
+          errorMessage += `... i ${validation.errors.length - 3} więcej błędów`;
+        }
+        
+        const shouldContinue = confirm(
+          `${errorMessage}\n\nCzy chcesz kontynuować eksport mimo błędów? Markdown może nie być kompatybilny z importem.`
+        );
+        
+        if (!shouldContinue) {
+          return;
+        }
+      }
+      
+      // Show warnings if any
+      if (validation.warnings.length > 0) {
+        let warningMessage = `Ostrzeżenia walidacji:\n`;
+        validation.warnings.slice(0, 2).forEach(warning => {
+          warningMessage += `• ${warning.fieldLabel}: ${warning.message}\n`;
+        });
+        if (validation.warnings.length > 2) {
+          warningMessage += `... i ${validation.warnings.length - 2} więcej ostrzeżeń`;
+        }
+        
+        toast({
+          title: "Ostrzeżenia eksportu",
+          description: warningMessage,
+          variant: "default",
+        });
+      }
+
+      const markdown = MarkdownFormParser.exportToMarkdown(
+        formFields,
+        formTitle || undefined,
+        formDescription || undefined
+      );
+      
+      // Create and download file
+      const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${formTitle || 'formularz'}.md`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      // Success message with validation info
+      const successTitle = validation.isValid ? 
+        "Eksport zakończony pomyślnie!" : 
+        "Eksport zakończony z ostrzeżeniami";
+      const successDescription = validation.isValid ?
+        "Plik markdown został pobrany i przeszedł walidację kompatybilności" :
+        `Plik markdown został pobrany. Ostrzeżeń: ${validation.warnings.length}`;
+      
+      toast({
+        title: successTitle,
+        description: successDescription,
+      });
+    } catch (error) {
+      toast({
+        title: "Błąd eksportu",
+        description: "Nie udało się wyeksportować formularza do markdown",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -162,6 +253,15 @@ export default function FormBuilder() {
             </div>
             <div className="flex items-center space-x-3">
               <MarkdownFormConverter onFieldsConverted={handleMarkdownFields} />
+              <Button 
+                variant="outline" 
+                onClick={handleExportMarkdown}
+                disabled={formFields.length === 0}
+                data-testid="button-export-markdown"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Eksportuj MD
+              </Button>
               <Button variant="outline" onClick={handlePreview} data-testid="button-preview">
                 <Eye className="w-4 h-4 mr-2" />
                 Preview

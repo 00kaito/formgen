@@ -25,6 +25,9 @@ export default function ResponsesView() {
 
   const { data: responses = [], isLoading: responsesLoading } = useQuery<FormResponse[]>({
     queryKey: ["/api/form-templates", id, "responses"],
+    staleTime: 0, // Always consider data stale to force fresh fetching
+    refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Also refetch when user returns to tab
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery<{
@@ -33,6 +36,9 @@ export default function ResponsesView() {
     lastResponseAt?: Date;
   }>({
     queryKey: ["/api/form-templates", id, "stats"],
+    staleTime: 0, // Always consider data stale since stats depend on responses
+    refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Also refetch when user returns to tab
   });
 
   const deleteMutation = useMutation({
