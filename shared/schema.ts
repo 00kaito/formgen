@@ -20,6 +20,7 @@ export const formResponses = pgTable("form_responses", {
   responses: jsonb("responses").notNull().$type<Record<string, any>>(),
   isComplete: boolean("is_complete").notNull().default(false),
   shareableResponseLink: varchar("shareable_response_link").notNull().unique(),
+  aiGeneratedFields: jsonb("ai_generated_fields").$type<FormField[]>(),
   submittedAt: timestamp("submitted_at").notNull().default(sql`now()`),
 });
 
