@@ -1,7 +1,8 @@
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage as dbStorage } from "./storage";
-import { insertFormTemplateSchema, insertFormResponseSchema } from "@shared/schema";
+import { insertFormTemplateSchema, insertFormResponseSchema, formResponses } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 // Import MarkdownFormParser for markdown export functionality
 import { MarkdownFormParser } from "@shared/markdownParser";
@@ -358,28 +359,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return response immediately to avoid blocking user
       res.status(201).json(response);
       
-      // Create backup files asynchronously (non-blocking)
-      setImmediate(async () => {
-        try {
-          const formTemplate = await dbStorage.getFormTemplate(response.formTemplateId);
-          if (formTemplate) {
-            const backupResult = await FormBackupUtils.createBackups(formTemplate, response);
-            if (!backupResult.success) {
-              console.warn('Async backup creation failed:', backupResult.errors);
-            } else {
-              console.log('Async backup files created successfully:', backupResult.files);
+      // Create backup files asynchronously (non-blocking) only for completed responses
+      if (response.isComplete) {
+        setImmediate(async () => {
+          try {
+            const formTemplate = await dbStorage.getFormTemplate(response.formTemplateId);
+            if (formTemplate) {
+              const backupResult = await FormBackupUtils.createBackups(formTemplate, response);
+              if (!backupResult.success) {
+                console.warn('Async backup creation failed:', backupResult.errors);
+              } else {
+                console.log('Async backup files created successfully:', backupResult.files);
+              }
             }
+          } catch (backupError) {
+            // Log async backup errors
+            console.error('Async backup creation error:', backupError);
           }
-        } catch (backupError) {
-          // Log async backup errors
-          console.error('Async backup creation error:', backupError);
-        }
-      });
+        });
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid response data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to submit form response" });
+    }
+  });
+
+  // Save draft response (isComplete: false)
+  app.post("/api/form-responses/draft", async (req, res) => {
+    try {
+      const validatedData = insertFormResponseSchema.parse({
+        ...req.body,
+        isComplete: false, // Force draft status
+      });
+      const response = await dbStorage.createFormResponse(validatedData);
+      
+      res.status(201).json(response);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid response data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to save draft" });
+    }
+  });
+
+  // Update draft response
+  app.put("/api/form-responses/draft/:shareableResponseLink", async (req, res) => {
+    try {
+      const existingResponse = await dbStorage.getFormResponseByShareableLink(req.params.shareableResponseLink);
+      if (!existingResponse) {
+        return res.status(404).json({ message: "Draft not found" });
+      }
+
+      // Only allow updating incomplete responses
+      if (existingResponse.isComplete) {
+        return res.status(400).json({ message: "Cannot update completed response" });
+      }
+
+      const validatedData = insertFormResponseSchema.parse({
+        ...req.body,
+        isComplete: req.body.isComplete || false, // Allow setting to complete
+      });
+
+      // Delete old response and create new one with same shareable link
+      await dbStorage.deleteFormResponse(existingResponse.id);
+      
+      const updatedResponse = await dbStorage.createFormResponse({
+        ...validatedData,
+        formTemplateId: existingResponse.formTemplateId, // Keep same template
+      });
+
+      // Update the shareable link to match the original
+      const storage = dbStorage as any;
+      if (storage.db) {
+        // PostgreSQL update
+        await storage.db.update(formResponses)
+          .set({ shareableResponseLink: req.params.shareableResponseLink })
+          .where(eq(formResponses.id, updatedResponse.id));
+        
+        // Re-fetch the updated response
+        const finalResponse = await dbStorage.getFormResponseByShareableLink(req.params.shareableResponseLink);
+        res.json(finalResponse);
+      } else {
+        // In-memory storage update
+        updatedResponse.shareableResponseLink = req.params.shareableResponseLink;
+        res.json(updatedResponse);
+      }
+
+      // Create backup files if response is now complete
+      if (validatedData.isComplete) {
+        setImmediate(async () => {
+          try {
+            const formTemplate = await dbStorage.getFormTemplate(existingResponse.formTemplateId);
+            if (formTemplate) {
+              const finalResponse = await dbStorage.getFormResponseByShareableLink(req.params.shareableResponseLink);
+              if (finalResponse) {
+                const backupResult = await FormBackupUtils.createBackups(formTemplate, finalResponse);
+                if (!backupResult.success) {
+                  console.warn('Async backup creation failed:', backupResult.errors);
+                } else {
+                  console.log('Async backup files created successfully:', backupResult.files);
+                }
+              }
+            }
+          } catch (backupError) {
+            console.error('Async backup creation error:', backupError);
+          }
+        });
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid response data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update draft" });
+    }
+  });
+
+  // Get draft response by shareable link
+  app.get("/api/draft-responses/:shareableResponseLink", async (req, res) => {
+    try {
+      const response = await dbStorage.getFormResponseByShareableLink(req.params.shareableResponseLink);
+      if (!response) {
+        return res.status(404).json({ message: "Draft not found" });
+      }
+      res.json(response);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch draft" });
     }
   });
 
