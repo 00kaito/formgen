@@ -2,9 +2,9 @@
 FORMULARZ: 55
 ============================================================
 
-Data złożenia: 16.09.2025, 17:53:18
-ID odpowiedzi: 2a84e1e9-fe16-45b6-b403-ff62ec9193f9
-Link do odpowiedzi: db470e32-c746-407a-9bc0-23cee5489dbd
+Data złożenia: 16.09.2025, 17:59:13
+ID odpowiedzi: 8d8bcf50-a139-494c-8151-912bfd79b5fa
+Link do odpowiedzi: c02fc1cb-89cc-4789-b5cc-5468a4b7c746
 Status: Kompletna
 
 OPIS FORMULARZA:
@@ -16,7 +16,7 @@ ODPOWIEDZI:
 1. Email Address
    Typ: email
    Wymagane: Nie
-   Odpowiedź: dfghj@rfg.com
+   Odpowiedź: asd@aswd.com
 
 ============================================================
-Backup wygenerowany: 16.09.2025, 17:53:18
+Backup wygenerowany: 16.09.2025, 17:59:13

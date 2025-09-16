@@ -2,6 +2,18 @@ import fs from "fs";
 import path from "path";
 import { type FormTemplate, type FormResponse } from "@shared/schema";
 
+// Ensure FormData and Blob are available in Node.js environment
+// Modern Node.js (18+) has these built-in, but ensure they're available
+if (!globalThis.FormData) {
+  console.warn('[WEBHOOK] FormData not available in global scope');
+}
+if (!globalThis.Blob) {
+  console.warn('[WEBHOOK] Blob not available in global scope');
+}
+if (!globalThis.fetch) {
+  console.warn('[WEBHOOK] fetch not available in global scope');
+}
+
 export class FormBackupUtils {
   private static backupDir = path.join(process.cwd(), "form-backups");
 
@@ -200,6 +212,62 @@ export class FormBackupUtils {
   }
 
   /**
+   * Sends a webhook POST request with backup file
+   */
+  private static async sendWebhook(txtFilePath: string, formTitle: string): Promise<void> {
+    console.log(`[WEBHOOK] Attempting to send webhook for file: ${path.basename(txtFilePath)}, form: ${formTitle}`);
+    
+    try {
+      const webhookUrl = 'https://x.nxn.ovh/webhook/62159c6e-09ec-4d09-b451-db4eb234a31c';
+      
+      // Read the TXT file
+      const fileBuffer = await fs.promises.readFile(txtFilePath);
+      console.log(`[WEBHOOK] File read successfully, size: ${fileBuffer.length} bytes`);
+      
+      // Create FormData compatible with Node.js
+      if (!globalThis.FormData || !globalThis.Blob) {
+        throw new Error('FormData or Blob not available in current Node.js environment');
+      }
+      
+      const formData = new FormData();
+      
+      // Create a Blob from the file buffer
+      const fileBlob = new Blob([fileBuffer], { type: 'text/plain' });
+      console.log(`[WEBHOOK] Created Blob with size: ${fileBuffer.length} bytes, type: text/plain`);
+      
+      // Add the file to FormData with filename
+      formData.append('data', fileBlob, path.basename(txtFilePath));
+      console.log(`[WEBHOOK] Added file to FormData: ${path.basename(txtFilePath)}`);
+      
+      // Add additional field with form title
+      formData.append('additionalField', formTitle);
+      
+      console.log(`[WEBHOOK] FormData prepared, sending POST request to ${webhookUrl}`);
+
+      // Send POST request
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text().catch(() => 'Unable to read response');
+        console.warn(`[WEBHOOK] Request failed with status ${response.status}: ${response.statusText}`);
+        console.warn(`[WEBHOOK] Response body: ${responseText}`);
+      } else {
+        const responseText = await response.text().catch(() => 'Success');
+        console.log(`[WEBHOOK] Sent successfully! Response: ${responseText}`);
+      }
+    } catch (error) {
+      console.error(`[WEBHOOK] Request failed with error:`, error);
+      console.error(`[WEBHOOK] Error details: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof Error && error.stack) {
+        console.error(`[WEBHOOK] Stack trace:`, error.stack);
+      }
+    }
+  }
+
+  /**
    * Creates backup files in all three formats (TXT, Markdown, CSV)
    */
   public static async createBackups(formTemplate: FormTemplate, formResponse: FormResponse): Promise<{
@@ -213,17 +281,31 @@ export class FormBackupUtils {
       errors: [] as string[]
     };
 
+    let txtFilePath: string | null = null;
+
     try {
       // Ensure backup directory exists
       const templateDir = await this.ensureBackupDirectory(formTemplate.id);
       
       // Create TXT backup
       try {
-        const txtFile = await this.createTXTBackup(templateDir, formTemplate, formResponse);
-        result.files.push(txtFile);
+        txtFilePath = await this.createTXTBackup(templateDir, formTemplate, formResponse);
+        result.files.push(txtFilePath);
+        
+        // Send webhook immediately after successful TXT file creation
+        console.log(`[BACKUP] TXT backup created successfully: ${txtFilePath}`);
+        console.log(`[BACKUP] Triggering webhook for form: ${formTemplate.title}`);
+        
+        // Use void and catch pattern to not block backup operations
+        void this.sendWebhook(txtFilePath, formTemplate.title).catch((error) => {
+          console.error(`[BACKUP] Webhook failed but continuing with other backup formats:`);
+          console.error(`[BACKUP] Webhook error details:`, error);
+        });
+        
       } catch (error) {
         result.errors.push(`TXT backup failed: ${error instanceof Error ? error.message : String(error)}`);
         result.success = false;
+        console.error(`[BACKUP] TXT backup creation failed:`, error);
       }
 
       // Create Markdown backup
@@ -243,6 +325,9 @@ export class FormBackupUtils {
         result.errors.push(`CSV backup failed: ${error instanceof Error ? error.message : String(error)}`);
         result.success = false;
       }
+
+      // Webhook is now sent immediately after TXT file creation
+      // This ensures webhook fires even if other backup formats fail
 
     } catch (error) {
       result.success = false;
