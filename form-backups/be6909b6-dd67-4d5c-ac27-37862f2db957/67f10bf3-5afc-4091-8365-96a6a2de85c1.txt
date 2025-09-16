@@ -1,0 +1,32 @@
+============================================================
+FORMULARZ: Test Backup Form
+============================================================
+
+Data złożenia: 16.09.2025, 17:42:45
+ID odpowiedzi: 67f10bf3-5afc-4091-8365-96a6a2de85c1
+Link do odpowiedzi: a6db701e-65d7-4296-9593-eec8536e69b6
+Status: Kompletna
+
+OPIS FORMULARZA:
+A test form to verify the backup system
+
+ODPOWIEDZI:
+----------------------------------------
+
+1. Full Name
+   Typ: text
+   Wymagane: Tak
+   Odpowiedź: Jan Kowalski
+
+2. Email Address
+   Typ: email
+   Wymagane: Tak
+   Odpowiedź: jan.kowalski@example.com
+
+3. Message
+   Typ: textarea
+   Wymagane: Nie
+   Odpowiedź: To jest test systemu backupu formularzy. Sprawdzamy czy wszystkie pliki zostają utworzone poprawnie.
+
+============================================================
+Backup wygenerowany: 16.09.2025, 17:42:45

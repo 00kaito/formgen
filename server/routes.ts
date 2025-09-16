@@ -5,6 +5,8 @@ import { insertFormTemplateSchema, insertFormResponseSchema } from "@shared/sche
 import { z } from "zod";
 // Import MarkdownFormParser for markdown export functionality
 import { MarkdownFormParser } from "@shared/markdownParser";
+// Import FormBackupUtils for disk backup functionality
+import { FormBackupUtils } from "./backup-utils";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -352,7 +354,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertFormResponseSchema.parse(req.body);
       const response = await dbStorage.createFormResponse(validatedData);
+      
+      // Return response immediately to avoid blocking user
       res.status(201).json(response);
+      
+      // Create backup files asynchronously (non-blocking)
+      setImmediate(async () => {
+        try {
+          const formTemplate = await dbStorage.getFormTemplate(response.formTemplateId);
+          if (formTemplate) {
+            const backupResult = await FormBackupUtils.createBackups(formTemplate, response);
+            if (!backupResult.success) {
+              console.warn('Async backup creation failed:', backupResult.errors);
+            } else {
+              console.log('Async backup files created successfully:', backupResult.files);
+            }
+          }
+        } catch (backupError) {
+          // Log async backup errors
+          console.error('Async backup creation error:', backupError);
+        }
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid response data", errors: error.errors });

@@ -1,0 +1,2 @@
+ID_Odpowiedzi,Data_Zlozenia,Status,Link_Do_Odpowiedzi,Tytul_Formularza,Pole_name_field_Full_Name,Pole_email_field_Email_Address,Pole_message_field_Message
+67f10bf3-5afc-4091-8365-96a6a2de85c1,"16.09.2025, 17:42:45",Kompletna,a6db701e-65d7-4296-9593-eec8536e69b6,Test Backup Form,Jan Kowalski,jan.kowalski@example.com,To jest test systemu backupu formularzy. Sprawdzamy czy wszystkie pliki zostają utworzone poprawnie.
