@@ -290,7 +290,7 @@ export default function FormBuilder() {
 
         {/* Form Canvas */}
         <div className="flex-1 p-6 overflow-y-auto">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             {/* Form Header */}
             <div className="mb-8">
               <Input
