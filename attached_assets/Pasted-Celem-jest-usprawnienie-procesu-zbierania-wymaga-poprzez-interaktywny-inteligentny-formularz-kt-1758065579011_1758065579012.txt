@@ -1,0 +1,40 @@
+Celem jest usprawnienie procesu zbierania wymagań poprzez interaktywny, "inteligentny" formularz, który dynamicznie dostosowuje się do odpowiedzi użytkownika.
+
+Akcja przycisku "Wyślij formularz":
+
+Po kliknięciu przycisku interfejs użytkownika musi natychmiast pokazać wizualny stan "ładowania" (np. kręcący się wskaźnik, przycisk zmieniający się na "Wysyłanie...", przyciemnienie formularza). Ma to wskazać użytkownikowi, że trwa przetwarzanie, a nie że aplikacja "zamarła".
+
+Przetwarzanie po wysłaniu:
+
+Dane z głównego formularza są wysyłane do backendu aplikacji.
+
+Backend konstruuje prompt dla AI (np. modelu OpenAI GPT, Anthropic Claude itp.) w oparciu o dostarczony szablon.
+
+AI analizuje otrzymane odpowiedzi i generuje listę dodatkowych, doprecyzowujących pytań.
+
+Struktura Promptu dla AI:
+Prompt wysłany do AI musi być dokładnie sformatowany w następujący sposób:
+
+plaintext
+You are a business analyst. You are gathering data for a development team so they can implement a business process automation.
+
+I received the description below. What additional questions should be asked to fully clarify the implementation? Are the provided answers thorough, or do you think we should ask about something else?
+
+### FORMULARZ DATA START ###
+[Tutaj należy wkleić w postaci tekstowej wszystkie pola i odpowiedzi z wysłanego formularza]
+### FORMULARZ DATA END ###
+Uwaga: Dane formularza muszą być przedstawione AI w czytelnej formie tekstowej, np. "Nazwa procesu: [odpowiedź użytkownika]", "Opis: [odpowiedź użytkownika]".
+
+Odpowiedź dla użytkownika:
+
+Użytkownik nie otrzymuje bezpośrednio odpowiedzi tekstowej od AI.
+
+Zamiast tego system automatycznie tworzy nowy, dynamiczny podformularz (moze byc w oparciu o markdown ktory juz jest zaimplementowany).
+
+Ten nowy formularz zawiera:
+
+Link lub wyraźne potwierdzenie zapisania/wysłania głównego formularza.
+
+Listę nowych pytan wygenerowanych przez AI. Każde pytanie musi być renderowane jako interaktywne pole formularza (pole tekstowe, checkbox, lista rozwijana itp.), gotowe do wypełnienia przez użytkownika.
+
+Celem jest płynne przejście do kolejnego kroku zbierania brakujących informacji.
