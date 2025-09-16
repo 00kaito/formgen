@@ -1,0 +1,22 @@
+============================================================
+FORMULARZ: test
+============================================================
+
+Data złożenia: 16.09.2025, 18:16:55
+ID odpowiedzi: 0cf1dea4-068e-41b9-a9f5-17ab1177870d
+Link do odpowiedzi: 26b4644d-f4b3-4d09-83f1-a35141e8b5d9
+Status: Kompletna
+
+OPIS FORMULARZA:
+(brak opisu)
+
+ODPOWIEDZI:
+----------------------------------------
+
+1. Text Field
+   Typ: text
+   Wymagane: Nie
+   Odpowiedź: asdf asdf
+
+============================================================
+Backup wygenerowany: 16.09.2025, 18:16:55
