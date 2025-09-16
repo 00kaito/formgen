@@ -74,6 +74,20 @@ export class MarkdownFormParser {
 
     // Convert each field to markdown format
     fields.forEach(field => {
+      // Special handling for separator fields - export as simple horizontal rule
+      if (field.type === 'separator') {
+        // If separator has a custom label (not default), add it as comment
+        if (field.label && field.label !== 'Belka dzieląca') {
+          markdown += `<!-- ${field.label} -->\n`;
+        }
+        // If separator has help text, add it as comment
+        if (field.helpText) {
+          markdown += `<!-- ${field.helpText} -->\n`;
+        }
+        markdown += '---\n\n';
+        return;
+      }
+
       // Field label as header
       markdown += `## ${field.label}\n`;
 
@@ -155,12 +169,24 @@ export class MarkdownFormParser {
     let currentSection: string[] = [];
 
     for (const line of lines) {
-      if (line.trim().startsWith('##')) {
+      const trimmedLine = line.trim();
+      
+      // Handle standard field headers
+      if (trimmedLine.startsWith('##')) {
         if (currentSection.length > 0) {
           sections.push(currentSection.join('\n'));
         }
         currentSection = [line];
-      } else if (currentSection.length > 0) {
+      }
+      // Handle horizontal rule separator syntax (---)
+      else if (trimmedLine === '---' || trimmedLine.match(/^-{3,}$/)) {
+        if (currentSection.length > 0) {
+          sections.push(currentSection.join('\n'));
+        }
+        // Convert --- to separator field format
+        currentSection = ['## Belka dzieląca', '[separator]'];
+      } 
+      else if (currentSection.length > 0) {
         currentSection.push(line);
       }
     }
@@ -376,6 +402,11 @@ export class MarkdownFormParser {
         } else {
           throw new Error('Typ pola "table" wymaga właściwości tablicy "columns". Przykład: {"columns": ["Kolumna 1", "Kolumna 2"]}');
         }
+        break;
+      
+      case 'separator':
+        // Separators are purely visual - no additional properties needed
+        // They only need label and optional helpText which are already handled
         break;
     }
 

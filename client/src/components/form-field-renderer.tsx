@@ -31,6 +31,23 @@ export default function FormFieldRenderer({
   templateId 
 }: FormFieldRendererProps) {
   const renderField = () => {
+    // Special handling for separator field - no form controls needed
+    if (field.type === 'separator') {
+      return (
+        <div className={`space-y-3 ${isPublic ? "my-8" : "my-4"}`} data-testid={`separator-${field.id}`}>
+          {field.label && field.label !== 'Belka dzieląca' && (
+            <div className={`text-center ${isPublic ? "text-lg font-medium" : "text-sm font-medium"} text-foreground mb-3`}>
+              {field.label}
+            </div>
+          )}
+          {field.helpText && (
+            <p className="text-center text-sm text-muted-foreground mb-3">{field.helpText}</p>
+          )}
+          <hr className={`border-t border-border ${isPublic ? "border-t-2" : ""}`} />
+        </div>
+      );
+    }
+
     if (isPublic && form) {
       return (
         <FormField
@@ -416,6 +433,10 @@ export default function FormFieldRenderer({
             </div>
           </div>
         );
+      
+      case 'separator':
+        // For separator, we need to handle it in the main renderField function since it doesn't use form controls
+        return null;
       
       default:
         return (

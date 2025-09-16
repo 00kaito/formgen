@@ -52,6 +52,7 @@ export default function FieldPropertiesPanel({ selectedField, onUpdateField }: F
   const hasOptions = ['select', 'radio', 'checkbox'].includes(localField.type);
   const isFileField = localField.type === 'file';
   const isTableField = localField.type === 'table';
+  const isSeparatorField = localField.type === 'separator';
 
   const updateFileType = (index: number, value: string) => {
     const newTypes = [...(localField.acceptedFileTypes || [])];
@@ -124,17 +125,26 @@ export default function FieldPropertiesPanel({ selectedField, onUpdateField }: F
           </div>
         )}
         
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="required"
-            checked={localField.required}
-            onCheckedChange={(checked) => updateField({ required: !!checked })}
-            data-testid="checkbox-required"
-          />
-          <label htmlFor="required" className="text-sm font-medium text-foreground">
-            Required field
-          </label>
-        </div>
+        {!isSeparatorField && (
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="required"
+              checked={localField.required}
+              onCheckedChange={(checked) => updateField({ required: !!checked })}
+              data-testid="checkbox-required"
+            />
+            <label htmlFor="required" className="text-sm font-medium text-foreground">
+              Required field
+            </label>
+          </div>
+        )}
+        
+        {isSeparatorField && (
+          <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+            <strong>Belka dzieląca</strong> to element wizualny - nie zbiera danych z formularza.
+            Możesz dostosować etykietę i tekst pomocniczy, aby dodać nagłówek lub opis sekcji.
+          </div>
+        )}
         
         {hasOptions && (
           <div>

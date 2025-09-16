@@ -1,5 +1,5 @@
 import { FormField, FormFieldType } from "@shared/schema";
-import { Type, AlignLeft, ChevronDown, Circle, CheckSquare, Mail, Hash, Calendar, Upload, Table } from "lucide-react";
+import { Type, AlignLeft, ChevronDown, Circle, CheckSquare, Mail, Hash, Calendar, Upload, Table, Minus } from "lucide-react";
 
 interface FormFieldPaletteProps {
   onAddField: (field: FormField) => void;
@@ -71,6 +71,12 @@ export default function FormFieldPalette({ onAddField }: FormFieldPaletteProps) 
       icon: <Table className="text-primary" />,
       label: 'Tabela',
       description: 'Interaktywna tabela z kolumnami'
+    },
+    {
+      type: 'separator',
+      icon: <Minus className="text-primary" />,
+      label: 'Belka dzieląca',
+      description: 'Wizualny separator/linia podziału'
     }
   ];
 
@@ -112,6 +118,12 @@ export default function FormFieldPalette({ onAddField }: FormFieldPaletteProps) 
           ...baseField,
           label: 'Tabela danych',
           columns: ['Kolumna 1', 'Kolumna 2', 'Kolumna 3']
+        };
+      case 'separator':
+        return {
+          ...baseField,
+          label: 'Belka dzieląca',
+          required: false
         };
       default:
         return baseField;

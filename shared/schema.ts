@@ -22,7 +22,7 @@ export const formResponses = pgTable("form_responses", {
   submittedAt: timestamp("submitted_at").notNull().default(sql`now()`),
 });
 
-export type FormFieldType = 'text' | 'textarea' | 'email' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'file' | 'table';
+export type FormFieldType = 'text' | 'textarea' | 'email' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'file' | 'table' | 'separator';
 
 export type FormField = {
   id: string;
