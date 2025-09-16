@@ -2,6 +2,21 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { ArrowLeft, Save, Eye, Loader2, Download } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -118,6 +133,38 @@ export default function FormBuilder() {
     setFormFields(formFields.filter(field => field.id !== fieldId));
     if (selectedField?.id === fieldId) {
       setSelectedField(null);
+    }
+  };
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end for reordering
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = formFields.findIndex((field) => field.id === active.id);
+      const newIndex = formFields.findIndex((field) => field.id === over.id);
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reorderedFields = arrayMove(formFields, oldIndex, newIndex);
+        setFormFields(reorderedFields);
+        
+        toast({
+          title: "Pole przeniesione",
+          description: `Pole "${formFields[oldIndex].label}" zostało przeniesione`,
+        });
+      }
     }
   };
 
@@ -311,25 +358,37 @@ export default function FormBuilder() {
             </div>
 
             {/* Form Fields */}
-            <div className="space-y-6" data-testid="form-fields-container">
-              {formFields.map((field) => (
-                <FormFieldRenderer
-                  key={field.id}
-                  field={field}
-                  isSelected={selectedField?.id === field.id}
-                  onClick={() => setSelectedField(field)}
-                  onDelete={() => handleDeleteField(field.id)}
-                />
-              ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={formFields.map(field => field.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-6" data-testid="form-fields-container">
+                  {formFields.map((field) => (
+                    <FormFieldRenderer
+                      key={field.id}
+                      field={field}
+                      isSelected={selectedField?.id === field.id}
+                      onClick={() => setSelectedField(field)}
+                      onDelete={() => handleDeleteField(field.id)}
+                      isDraggable={true}
+                    />
+                  ))}
 
-              {/* Drop Zone */}
-              {formFields.length === 0 && (
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center text-muted-foreground hover:border-primary/50 transition-colors">
-                  <LayersIcon className="w-8 h-8 mx-auto mb-2" />
-                  <p>Add form fields from the palette on the left</p>
+                  {/* Drop Zone */}
+                  {formFields.length === 0 && (
+                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center text-muted-foreground hover:border-primary/50 transition-colors">
+                      <LayersIcon className="w-8 h-8 mx-auto mb-2" />
+                      <p>Add form fields from the palette on the left</p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </SortableContext>
+            </DndContext>
           </div>
         </div>
 

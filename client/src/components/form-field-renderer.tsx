@@ -7,9 +7,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Edit, Trash2, Upload, Plus, X } from "lucide-react";
+import { Edit, Trash2, Upload, Plus, X, GripVertical } from "lucide-react";
 import { UseFormReturn } from "react-hook-form";
 import { useState } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface FormFieldRendererProps {
   field: FormFieldType;
@@ -19,6 +21,7 @@ interface FormFieldRendererProps {
   onDelete?: () => void;
   form?: UseFormReturn<any>;
   templateId?: string;
+  isDraggable?: boolean;
 }
 
 export default function FormFieldRenderer({ 
@@ -28,8 +31,27 @@ export default function FormFieldRenderer({
   onClick, 
   onDelete,
   form,
-  templateId 
+  templateId,
+  isDraggable = false 
 }: FormFieldRendererProps) {
+  
+  // Sortable hook for drag and drop (only in builder mode)
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ 
+    id: field.id,
+    disabled: isPublic || !isDraggable,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
   const renderField = () => {
     // Special handling for separator field - no form controls needed
     if (field.type === 'separator') {
@@ -455,18 +477,42 @@ export default function FormFieldRenderer({
 
   return (
     <div
-      className={`group relative p-4 border-2 border-dashed transition-colors rounded-lg cursor-pointer ${
+      ref={setNodeRef}
+      style={style}
+      className={`group relative p-4 border-2 border-dashed transition-all duration-200 rounded-lg cursor-pointer ${
         isSelected 
           ? "border-primary bg-primary/5" 
           : "border-transparent hover:border-primary/50"
+      } ${
+        isDragging 
+          ? "opacity-50 shadow-lg scale-105 border-primary bg-primary/10" 
+          : ""
       }`}
       onClick={onClick}
       data-testid={`field-${field.id}`}
     >
       <div className="flex items-start justify-between">
+        {/* Drag Handle */}
+        {isDraggable && (
+          <div
+            {...attributes}
+            {...listeners}
+            className={`flex items-center mr-3 p-1 rounded cursor-grab active:cursor-grabbing transition-colors ${
+              isSelected || isDragging 
+                ? "text-primary bg-primary/10" 
+                : "text-muted-foreground hover:text-primary hover:bg-accent"
+            }`}
+            data-testid={`drag-handle-${field.id}`}
+            title="Przeciągnij, aby zmienić kolejność"
+          >
+            <GripVertical className="w-4 h-4" />
+          </div>
+        )}
+
         <div className="flex-1">
           {renderField()}
         </div>
+        
         <div className={`ml-4 transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
           <div className="flex space-x-1">
             <Button variant="ghost" size="sm" data-testid={`button-edit-field-${field.id}`}>
@@ -486,6 +532,13 @@ export default function FormFieldRenderer({
           </div>
         </div>
       </div>
+      
+      {/* Drop indicator */}
+      {isDragging && (
+        <div className="absolute inset-0 border-2 border-dashed border-primary/50 rounded-lg bg-primary/5 flex items-center justify-center">
+          <span className="text-sm text-primary font-medium">Przeciągnij tutaj</span>
+        </div>
+      )}
     </div>
   );
 }
