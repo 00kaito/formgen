@@ -436,7 +436,7 @@ export default function FormFieldRenderer({
                 data-testid={`button-add-row-${field.id}`}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Dodaj wiersz
+                Add Row
               </Button>
             </div>
           );
