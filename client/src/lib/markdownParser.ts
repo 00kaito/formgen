@@ -113,6 +113,20 @@ export class MarkdownFormParser {
       if (field.multiple) {
         properties.multiple = field.multiple;
       }
+      
+      // Handle columns for table fields - these MUST have columns for re-import compatibility
+      if (field.type === 'table') {
+        if (field.columns && field.columns.length > 0) {
+          properties.columns = field.columns;
+        } else {
+          // Ensure compatibility - add default columns with warning
+          properties.columns = ['Kolumna 1', 'Kolumna 2'];
+          console.warn(`Field '${field.label}' of type 'table' has no columns. Added default columns for re-import compatibility.`);
+        }
+      } else if (field.columns && field.columns.length > 0) {
+        // For non-table fields that somehow have columns, still include them
+        properties.columns = field.columns;
+      }
 
       // Add properties to field line if any exist
       if (Object.keys(properties).length > 0) {
@@ -347,10 +361,26 @@ export class MarkdownFormParser {
       case 'date':
         // Date fields don't have additional properties currently
         break;
+      
+      case 'table':
+        if (properties.columns) {
+          if (Array.isArray(properties.columns)) {
+            field.columns = properties.columns.map(String);
+            // Require at least one column
+            if (field.columns.length === 0) {
+              throw new Error('Tabela musi zawierać co najmniej jedną kolumnę');
+            }
+          } else {
+            throw new Error('Kolumny tabeli muszą być tablicą');
+          }
+        } else {
+          throw new Error('Typ pola "table" wymaga właściwości tablicy "columns". Przykład: {"columns": ["Kolumna 1", "Kolumna 2"]}');
+        }
+        break;
     }
 
     // Handle any additional unknown properties (for future extensibility)
-    const knownProperties = ['placeholder', 'options', 'acceptedFileTypes', 'maxFileSize', 'multiple'];
+    const knownProperties = ['placeholder', 'options', 'acceptedFileTypes', 'maxFileSize', 'multiple', 'columns'];
     for (const [key, value] of Object.entries(properties)) {
       if (!knownProperties.includes(key)) {
         console.warn(`Nieznana właściwość '${key}' dla typu pola '${field.type}'`);
@@ -362,7 +392,7 @@ export class MarkdownFormParser {
    * Validate field type
    */
   private static isValidFieldType(type: string): type is FormFieldType {
-    const validTypes: FormFieldType[] = ['text', 'textarea', 'email', 'number', 'date', 'select', 'radio', 'checkbox', 'file'];
+    const validTypes: FormFieldType[] = ['text', 'textarea', 'email', 'number', 'date', 'select', 'radio', 'checkbox', 'file', 'table'];
     return validTypes.includes(type as FormFieldType);
   }
 
@@ -405,7 +435,11 @@ Zaznacz wszystkie, które dotyczą Ciebie`,
 
       file: `## Przesyłanie CV
 [file] (required) {"acceptedFileTypes": [".pdf", ".doc", ".docx"], "maxFileSize": 5, "multiple": false}
-Prześlij swoje CV (plik PDF lub Word)`
+Prześlij swoje CV (plik PDF lub Word)`,
+
+      table: `## Dane Uczestników
+[table] (required) {"columns": ["Imię", "Nazwisko", "Email", "Telefon"]}
+Dodaj informacje o wszystkich uczestnikach`
     };
   }
 
