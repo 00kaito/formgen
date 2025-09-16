@@ -22,6 +22,13 @@ export const formResponses = pgTable("form_responses", {
   submittedAt: timestamp("submitted_at").notNull().default(sql`now()`),
 });
 
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: varchar("username").notNull().unique(),
+  password: varchar("password").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 export type FormFieldType = 'text' | 'textarea' | 'email' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'file' | 'table' | 'separator';
 
 export type FormField = {
@@ -50,7 +57,14 @@ export const insertFormResponseSchema = createInsertSchema(formResponses).omit({
   submittedAt: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertFormTemplate = z.infer<typeof insertFormTemplateSchema>;
 export type FormTemplate = typeof formTemplates.$inferSelect;
 export type InsertFormResponse = z.infer<typeof insertFormResponseSchema>;
 export type FormResponse = typeof formResponses.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;

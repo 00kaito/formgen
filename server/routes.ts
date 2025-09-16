@@ -9,6 +9,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import slugify from "slugify";
+import passport from "passport";
+import { requireAuth, isAuthenticated } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Ensure uploads directory exists
@@ -177,7 +179,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     express.static(uploadsDir)(req, res, next);
   });
 
-  // Form Templates Routes
+  // Authentication Routes
+  app.post("/api/auth/login", (req, res, next) => {
+    return passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Błąd serwera" });
+      }
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "Nieprawidłowe dane uwierzytelniające" });
+      }
+      req.logIn(user, (err: any) => {
+        if (err) {
+          return res.status(500).json({ message: "Błąd logowania" });
+        }
+        return res.json({ 
+          message: "Zalogowano pomyślnie", 
+          user: {
+            id: user.id,
+            username: user.username
+          }
+        });
+      });
+    })(req, res, next);
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Błąd wylogowania" });
+      }
+      res.json({ message: "Wylogowano pomyślnie" });
+    });
+  });
+
+  app.get("/api/auth/user", (req, res) => {
+    if (req.isAuthenticated()) {
+      res.json({ 
+        authenticated: true, 
+        user: {
+          id: req.user.id,
+          username: req.user.username
+        }
+      });
+    } else {
+      res.json({ authenticated: false, user: null });
+    }
+  });
+
+  // Form Templates Routes (Protected)
   app.get("/api/form-templates", async (req, res) => {
     try {
       const templates = await dbStorage.getAllFormTemplates();

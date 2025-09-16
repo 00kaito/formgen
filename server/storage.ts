@@ -1,4 +1,4 @@
-import { type FormTemplate, type InsertFormTemplate, type FormResponse, type InsertFormResponse, type FormField } from "@shared/schema";
+import { type FormTemplate, type InsertFormTemplate, type FormResponse, type InsertFormResponse, type FormField, type User, type InsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -16,6 +16,13 @@ export interface IStorage {
   getFormResponsesByTemplateId(templateId: string): Promise<FormResponse[]>;
   createFormResponse(response: InsertFormResponse): Promise<FormResponse>;
   deleteFormResponse(id: string): Promise<boolean>;
+
+  // User Management
+  getUserById(id: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
 
   // Statistics
   getFormStats(templateId: string): Promise<{
@@ -49,10 +56,25 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private formTemplates: Map<string, FormTemplate>;
   private formResponses: Map<string, FormResponse>;
+  private users: Map<string, User>;
 
   constructor() {
     this.formTemplates = new Map();
     this.formResponses = new Map();
+    this.users = new Map();
+    
+    // Initialize with hardcoded admin user
+    this.initializeAdminUser();
+  }
+
+  private async initializeAdminUser() {
+    const adminUser: User = {
+      id: "admin-user-id",
+      username: "admin",
+      password: "Procesy123", // In production, this should be hashed
+      createdAt: new Date(),
+    };
+    this.users.set(adminUser.id, adminUser);
   }
 
   async getFormTemplate(id: string): Promise<FormTemplate | undefined> {
@@ -148,6 +170,45 @@ export class MemStorage implements IStorage {
 
   async deleteFormResponse(id: string): Promise<boolean> {
     return this.formResponses.delete(id);
+  }
+
+  // User Management Methods
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.username === username);
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const id = randomUUID();
+    
+    const user: User = {
+      ...insertUser,
+      id,
+      createdAt: new Date(),
+    };
+    
+    this.users.set(id, user);
+    return user;
+  }
+
+  async updateUser(id: string, updateData: Partial<InsertUser>): Promise<User | undefined> {
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
+
+    const updated: User = {
+      ...existing,
+      ...updateData,
+    };
+
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    return this.users.delete(id);
   }
 
   async getFormStats(templateId: string): Promise<{
