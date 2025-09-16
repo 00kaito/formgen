@@ -392,7 +392,7 @@ export default function FormFieldRenderer({
                           {column}
                         </TableHead>
                       ))}
-                      <TableHead className="w-[50px]">Akcje</TableHead>
+                      <TableHead className="w-[50px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -403,7 +403,7 @@ export default function FormFieldRenderer({
                             <Input
                               value={row[column] || ''}
                               onChange={(e) => updateCell(rowIndex, column, e.target.value)}
-                              placeholder={`Wpisz ${column.toLowerCase()}`}
+                              placeholder={`Enter ${column.toLowerCase()}`}
                               className="h-8"
                               data-testid={`table-input-${field.id}-${rowIndex}-${colIndex}`}
                             />
