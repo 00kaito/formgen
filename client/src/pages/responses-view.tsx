@@ -1,10 +1,11 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Download, Share, Eye, Trash2, Search, Filter, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Share, Eye, Trash2, Search, Filter, Loader2, FileText, FileSpreadsheet, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { FormResponse, FormTemplate } from "@shared/schema";
@@ -59,8 +60,39 @@ export default function ResponsesView() {
     }
   };
 
-  const handleExport = () => {
-    // Simple CSV export
+  const exportMutation = useMutation({
+    mutationFn: async (format: 'csv' | 'excel') => {
+      const response = await fetch(`/api/form-templates/${id}/export?format=${format}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Export failed');
+      }
+      return { response, format };
+    },
+    onSuccess: async ({ response, format }) => {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${formTemplate?.title || "form"}-responses.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export successful",
+        description: `Responses have been exported as ${format.toUpperCase()}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Export failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleExport = (format: 'csv' | 'excel') => {
     if (responses.length === 0) {
       toast({
         title: "No data to export",
@@ -70,31 +102,7 @@ export default function ResponsesView() {
       return;
     }
 
-    const headers = ["Response ID", "Submitted At", "Status", ...Object.keys(responses[0].responses)];
-    const csvContent = [
-      headers.join(","),
-      ...responses.map((response: FormResponse) => [
-        response.id,
-        new Date(response.submittedAt).toLocaleDateString(),
-        response.isComplete ? "Complete" : "Incomplete",
-        ...Object.values(response.responses).map(value => 
-          Array.isArray(value) ? value.join("; ") : String(value)
-        )
-      ].map(field => `"${field}"`).join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${formTemplate?.title || "form"}-responses.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-
-    toast({
-      title: "Export successful",
-      description: "Responses have been exported to CSV",
-    });
+    exportMutation.mutate(format);
   };
 
   const filteredResponses = responses.filter((response: FormResponse) => {
@@ -148,10 +156,35 @@ export default function ResponsesView() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <Button variant="outline" onClick={handleExport} data-testid="button-export">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    disabled={exportMutation.isPending}
+                    data-testid="button-export"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {exportMutation.isPending ? "Exporting..." : "Export"}
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={() => handleExport('csv')}
+                    data-testid="export-csv"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleExport('excel')}
+                    data-testid="export-excel"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    Export as Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button onClick={() => setShareModalOpen(true)} data-testid="button-share">
                 <Share className="w-4 h-4 mr-2" />
                 Share Form

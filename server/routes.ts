@@ -149,6 +149,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export Routes
+  app.get("/api/form-templates/:id/export", async (req, res) => {
+    try {
+      const { format = 'csv' } = req.query;
+      const formTemplate = await storage.getFormTemplate(req.params.id);
+      const responses = await storage.getFormResponsesByTemplateId(req.params.id);
+      
+      if (!formTemplate) {
+        return res.status(404).json({ message: "Form template not found" });
+      }
+
+      if (responses.length === 0) {
+        return res.status(400).json({ message: "No responses to export" });
+      }
+
+      if (format === 'excel') {
+        // Excel export using exceljs
+        const ExcelJS = require('exceljs');
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Form Responses');
+
+        // Headers
+        const headers = ['Response ID', 'Submitted At', 'Status'];
+        formTemplate.fields.forEach(field => {
+          headers.push(field.label);
+        });
+        worksheet.addRow(headers);
+
+        // Style headers
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE6E6E6' }
+        };
+
+        // Add data rows
+        responses.forEach(response => {
+          const row = [
+            response.id,
+            new Date(response.submittedAt).toLocaleDateString(),
+            response.isComplete ? 'Complete' : 'Incomplete'
+          ];
+          
+          formTemplate.fields.forEach(field => {
+            const value = response.responses[field.id];
+            if (Array.isArray(value)) {
+              row.push(value.join('; '));
+            } else {
+              row.push(value || '');
+            }
+          });
+          
+          worksheet.addRow(row);
+        });
+
+        // Auto-fit columns
+        worksheet.columns.forEach((column: any) => {
+          column.width = Math.max(column.width || 0, 15);
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${formTemplate.title}-responses.xlsx"`);
+        
+        await workbook.xlsx.write(res);
+        res.end();
+      } else {
+        // CSV export
+        const headers = ['Response ID', 'Submitted At', 'Status'];
+        formTemplate.fields.forEach(field => {
+          headers.push(field.label);
+        });
+
+        const csvRows = [headers.join(',')];
+        
+        responses.forEach(response => {
+          const row = [
+            `"${response.id}"`,
+            `"${new Date(response.submittedAt).toLocaleDateString()}"`,
+            `"${response.isComplete ? 'Complete' : 'Incomplete'}"`
+          ];
+          
+          formTemplate.fields.forEach(field => {
+            const value = response.responses[field.id];
+            if (Array.isArray(value)) {
+              row.push(`"${value.join('; ')}"`);
+            } else {
+              row.push(`"${value || ''}"`);
+            }
+          });
+          
+          csvRows.push(row.join(','));
+        });
+
+        const csvContent = csvRows.join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${formTemplate.title}-responses.csv"`);
+        res.send(csvContent);
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      res.status(500).json({ message: "Failed to export responses" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
