@@ -1,4 +1,4 @@
-import { FormField, FormFieldType } from "@shared/schema";
+import { FormField, FormFieldType } from "./schema";
 
 interface ParsedField {
   label: string;
@@ -14,6 +14,168 @@ interface ParseResult {
 }
 
 export class MarkdownFormParser {
+  /**
+   * Export form responses to markdown format with proper table formatting
+   * Creates a markdown document with form metadata and response data in tables
+   */
+  static exportResponsesToMarkdown(
+    formTemplate: { title: string; description?: string; fields: any[] },
+    responses: Array<{ id: string; responses: Record<string, any>; submittedAt: Date | string }>,
+    includeFormDefinition: boolean = true
+  ): string {
+    let markdown = '';
+    
+    // Add form metadata
+    markdown += `# Odpowiedzi Formularza: ${formTemplate.title}\n\n`;
+    
+    if (formTemplate.description) {
+      markdown += `${formTemplate.description}\n\n`;
+    }
+    
+    markdown += `**Data eksportu:** ${new Date().toLocaleString('pl-PL')}\n`;
+    markdown += `**Liczba odpowiedzi:** ${responses.length}\n\n`;
+    
+    // Include form definition if requested
+    if (includeFormDefinition && formTemplate.fields.length > 0) {
+      markdown += `## Definicja Formularza\n\n`;
+      
+      // Convert FormFields to markdown format
+      formTemplate.fields.forEach(field => {
+        if (field.type === 'separator') {
+          if (field.label && field.label !== 'Belka dzieląca') {
+            markdown += `<!-- ${field.label} -->\n`;
+          }
+          if (field.helpText) {
+            markdown += `<!-- ${field.helpText} -->\n`;
+          }
+          markdown += '---\n\n';
+          return;
+        }
+        
+        markdown += `### ${field.label}\n`;
+        
+        let fieldLine = `**Typ:** \`${field.type}\``;
+        if (field.required) {
+          fieldLine += ' *(wymagane)*';
+        }
+        markdown += `${fieldLine}\n\n`;
+        
+        if (field.helpText) {
+          markdown += `**Opis:** ${field.helpText}\n\n`;
+        }
+        
+        if (field.options && field.options.length > 0) {
+          markdown += `**Opcje:** ${field.options.join(', ')}\n\n`;
+        }
+        
+        if (field.placeholder) {
+          markdown += `**Symbol zastępczy:** "${field.placeholder}"\n\n`;
+        }
+      });
+      
+      markdown += '\n';
+    }
+    
+    // Add responses section
+    if (responses.length === 0) {
+      markdown += `## Odpowiedzi\n\nBrak odpowiedzi.\n`;
+      return markdown;
+    }
+    
+    markdown += `## Odpowiedzi (${responses.length})\n\n`;
+    
+    // Get all response fields for table headers
+    const allFieldLabels = new Set<string>();
+    const fieldIdToLabel = new Map<string, string>();
+    
+    // Map field IDs to labels from form template
+    formTemplate.fields.forEach(field => {
+      if (field.type !== 'separator') {
+        fieldIdToLabel.set(field.id, field.label);
+        allFieldLabels.add(field.label);
+      }
+    });
+    
+    // Also collect any fields from responses that might not be in template
+    responses.forEach(response => {
+      Object.keys(response.responses).forEach(fieldId => {
+        if (!fieldIdToLabel.has(fieldId)) {
+          fieldIdToLabel.set(fieldId, fieldId); // Use field ID as label if not found
+          allFieldLabels.add(fieldId);
+        }
+      });
+    });
+    
+    const headers = ['Data wysłania', ...Array.from(allFieldLabels)];
+    
+    // Create markdown table
+    markdown += '| ' + headers.join(' | ') + ' |\n';
+    markdown += '| ' + headers.map(() => '---').join(' | ') + ' |\n';
+    
+    // Add response rows
+    responses.forEach(response => {
+      const submittedDate = new Date(response.submittedAt).toLocaleString('pl-PL');
+      const row = [submittedDate];
+      
+      // Add response values in order of headers
+      Array.from(allFieldLabels).forEach(label => {
+        // Find field ID for this label
+        let fieldId = '';
+        for (const [id, lbl] of Array.from(fieldIdToLabel.entries())) {
+          if (lbl === label) {
+            fieldId = id;
+            break;
+          }
+        }
+        
+        let cellValue = response.responses[fieldId] || '';
+        
+        // Format cell value based on type
+        if (Array.isArray(cellValue)) {
+          // Handle table data (array of row objects) vs simple array values
+          if (cellValue.length > 0 && typeof cellValue[0] === 'object' && cellValue[0] !== null) {
+            // Table field format - array of row objects like [{Name: 'John', Email: 'john@example.com'}]
+            const tableRows = cellValue.map((row: Record<string, any>) => 
+              Object.values(row).join(' | ')
+            ).join('; ');
+            cellValue = tableRows;
+          } else {
+            // Simple array like checkbox selections
+            cellValue = cellValue.join(', ');
+          }
+        } else if (typeof cellValue === 'object' && cellValue !== null) {
+          cellValue = JSON.stringify(cellValue);
+        } else {
+          cellValue = String(cellValue);
+        }
+        
+        // Escape pipe characters and clean up cell content for markdown table
+        cellValue = cellValue.replace(/\|/g, '\\|').replace(/\n/g, ' ').trim();
+        if (!cellValue) {
+          cellValue = '-';
+        }
+        
+        row.push(cellValue);
+      });
+      
+      markdown += '| ' + row.join(' | ') + ' |\n';
+    });
+    
+    markdown += '\n';
+    
+    // Add summary statistics
+    markdown += `## Podsumowanie\n\n`;
+    markdown += `- **Łączna liczba odpowiedzi:** ${responses.length}\n`;
+    
+    if (responses.length > 0) {
+      const firstResponse = new Date(responses[responses.length - 1].submittedAt);
+      const lastResponse = new Date(responses[0].submittedAt);
+      markdown += `- **Pierwsza odpowiedź:** ${firstResponse.toLocaleString('pl-PL')}\n`;
+      markdown += `- **Ostatnia odpowiedź:** ${lastResponse.toLocaleString('pl-PL')}\n`;
+    }
+    
+    return markdown;
+  }
   /**
    * Parse markdown text into FormField objects
    * Syntax: 
@@ -423,7 +585,7 @@ export class MarkdownFormParser {
    * Validate field type
    */
   private static isValidFieldType(type: string): type is FormFieldType {
-    const validTypes: FormFieldType[] = ['text', 'textarea', 'email', 'number', 'date', 'select', 'radio', 'checkbox', 'file', 'table'];
+    const validTypes: FormFieldType[] = ['text', 'textarea', 'email', 'number', 'date', 'select', 'radio', 'checkbox', 'file', 'table', 'separator'];
     return validTypes.includes(type as FormFieldType);
   }
 
@@ -470,7 +632,11 @@ Prześlij swoje CV (plik PDF lub Word)`,
 
       table: `## Dane Uczestników
 [table] (required) {"columns": ["Imię", "Nazwisko", "Email", "Telefon"]}
-Dodaj informacje o wszystkich uczestnikach`
+Dodaj informacje o wszystkich uczestnikach`,
+
+      separator: `## Sekcja
+[separator]
+Ten tekst będzie wyświetlany nad belką dzielącą`
     };
   }
 
@@ -500,127 +666,153 @@ Dodaj informacje o wszystkich uczestnikach`
           warnings.push({
             fieldId: 'unknown',
             fieldLabel: error.section,
-            message: `Parse error during re-import: ${error.error}`
+            message: `Parse error in section '${error.section}': ${error.error}`
           });
         });
       }
       
-      // Compare field count
+      // Compare field counts
       if (fields.length !== reimportedFields.length) {
         errors.push({
-          fieldId: 'form',
-          fieldLabel: 'Form',
-          property: 'fieldCount',
+          fieldId: 'all',
+          fieldLabel: 'Form Structure',
+          property: 'field_count',
           original: fields.length,
           reimported: reimportedFields.length,
-          error: 'Field count mismatch after roundtrip'
+          error: `Field count mismatch: expected ${fields.length}, got ${reimportedFields.length}`
         });
-        return { isValid: false, errors, warnings };
       }
       
-      // Compare each field
-      for (let i = 0; i < fields.length; i++) {
+      // Compare individual fields
+      const minLength = Math.min(fields.length, reimportedFields.length);
+      for (let i = 0; i < minLength; i++) {
         const original = fields[i];
         const reimported = reimportedFields[i];
         
         // Compare basic properties
-        const propertiesToCheck = ['type', 'label', 'required', 'placeholder', 'helpText', 'maxFileSize', 'multiple'];
-        
-        for (const prop of propertiesToCheck) {
-          const originalValue = (original as any)[prop];
-          const reimportedValue = (reimported as any)[prop];
-          
-          if (originalValue !== reimportedValue) {
-            errors.push({
-              fieldId: original.id,
-              fieldLabel: original.label,
-              property: prop,
-              original: originalValue,
-              reimported: reimportedValue,
-              error: `Property '${prop}' does not match after roundtrip`
-            });
-          }
+        if (original.label !== reimported.label) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'label',
+            original: original.label,
+            reimported: reimported.label,
+            error: 'Label mismatch'
+          });
         }
         
-        // Compare arrays (options, acceptedFileTypes)
-        const arrayPropsToCheck = ['options', 'acceptedFileTypes'];
-        
-        for (const prop of arrayPropsToCheck) {
-          const originalArray = (original as any)[prop];
-          const reimportedArray = (reimported as any)[prop];
-          
-          if (originalArray || reimportedArray) {
-            if (!originalArray && reimportedArray) {
-              // Original was undefined/null but reimported has a value
-              if (reimportedArray.length > 0 || (prop === 'options' && (original.type === 'select' || original.type === 'radio' || original.type === 'checkbox'))) {
-                errors.push({
-                  fieldId: original.id,
-                  fieldLabel: original.label,
-                  property: prop,
-                  original: originalArray,
-                  reimported: reimportedArray,
-                  error: `Property '${prop}' was added during roundtrip`
-                });
-              }
-            } else if (originalArray && !reimportedArray) {
-              errors.push({
-                fieldId: original.id,
-                fieldLabel: original.label,
-                property: prop,
-                original: originalArray,
-                reimported: reimportedArray,
-                error: `Property '${prop}' was lost during roundtrip`
-              });
-            } else if (originalArray && reimportedArray) {
-              // Both exist - compare arrays
-              if (originalArray.length !== reimportedArray.length) {
-                errors.push({
-                  fieldId: original.id,
-                  fieldLabel: original.label,
-                  property: prop,
-                  original: originalArray,
-                  reimported: reimportedArray,
-                  error: `Array length mismatch in '${prop}' after roundtrip`
-                });
-              } else {
-                // Compare array contents
-                for (let j = 0; j < originalArray.length; j++) {
-                  if (originalArray[j] !== reimportedArray[j]) {
-                    errors.push({
-                      fieldId: original.id,
-                      fieldLabel: original.label,
-                      property: `${prop}[${j}]`,
-                      original: originalArray[j],
-                      reimported: reimportedArray[j],
-                      error: `Array item at index ${j} in '${prop}' does not match after roundtrip`
-                    });
-                  }
-                }
-              }
-            }
-          }
+        if (original.type !== reimported.type) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'type',
+            original: original.type,
+            reimported: reimported.type,
+            error: 'Type mismatch'
+          });
         }
         
-        // Special validation for fields that require options
-        if ((original.type === 'select' || original.type === 'radio' || original.type === 'checkbox')) {
-          if (!reimported.options || reimported.options.length === 0) {
-            warnings.push({
-              fieldId: original.id,
-              fieldLabel: original.label,
-              message: `Field of type '${original.type}' has empty options after roundtrip. Users won't be able to make selections.`
-            });
-          }
+        if (original.required !== reimported.required) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'required',
+            original: original.required,
+            reimported: reimported.required,
+            error: 'Required status mismatch'
+          });
+        }
+        
+        if (original.helpText !== reimported.helpText) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'helpText',
+            original: original.helpText,
+            reimported: reimported.helpText,
+            error: 'Help text mismatch'
+          });
+        }
+        
+        // Compare type-specific properties
+        if (original.placeholder !== reimported.placeholder) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'placeholder',
+            original: original.placeholder,
+            reimported: reimported.placeholder,
+            error: 'Placeholder mismatch'
+          });
+        }
+        
+        // Compare options arrays
+        if (!this.arraysEqual(original.options, reimported.options)) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'options',
+            original: original.options,
+            reimported: reimported.options,
+            error: 'Options array mismatch'
+          });
+        }
+        
+        // Compare columns arrays
+        if (!this.arraysEqual(original.columns, reimported.columns)) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'columns',
+            original: original.columns,
+            reimported: reimported.columns,
+            error: 'Columns array mismatch'
+          });
+        }
+        
+        // Compare file-specific properties
+        if (!this.arraysEqual(original.acceptedFileTypes, reimported.acceptedFileTypes)) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'acceptedFileTypes',
+            original: original.acceptedFileTypes,
+            reimported: reimported.acceptedFileTypes,
+            error: 'Accepted file types mismatch'
+          });
+        }
+        
+        if (original.maxFileSize !== reimported.maxFileSize) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'maxFileSize',
+            original: original.maxFileSize,
+            reimported: reimported.maxFileSize,
+            error: 'Max file size mismatch'
+          });
+        }
+        
+        if (original.multiple !== reimported.multiple) {
+          errors.push({
+            fieldId: original.id,
+            fieldLabel: original.label,
+            property: 'multiple',
+            original: original.multiple,
+            reimported: reimported.multiple,
+            error: 'Multiple files flag mismatch'
+          });
         }
       }
       
     } catch (error) {
       errors.push({
-        fieldId: 'export',
-        fieldLabel: 'Export Process',
-        property: 'execution',
-        original: 'success',
-        reimported: 'failure',
-        error: `Export/import roundtrip failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        fieldId: 'all',
+        fieldLabel: 'Export/Import Process',
+        property: 'process',
+        original: 'successful',
+        reimported: 'failed',
+        error: `Export/import failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       });
     }
     
@@ -630,93 +822,59 @@ Dodaj informacje o wszystkich uczestnikach`
       warnings
     };
   }
+  
+  /**
+   * Helper method to compare arrays for equality
+   */
+  private static arraysEqual(arr1: any[] | undefined, arr2: any[] | undefined): boolean {
+    // Handle undefined cases
+    if (arr1 === undefined && arr2 === undefined) return true;
+    if (arr1 === undefined || arr2 === undefined) return false;
+    
+    // Compare lengths
+    if (arr1.length !== arr2.length) return false;
+    
+    // Compare elements
+    for (let i = 0; i < arr1.length; i++) {
+      if (arr1[i] !== arr2[i]) return false;
+    }
+    
+    return true;
+  }
 
   /**
-   * Generate comprehensive syntax documentation
+   * Get syntax documentation for markdown form fields
    */
-  static getSyntaxDocumentation(): string {
-    return `# Składnia Formularza Markdown
-
-## Podstawowa Struktura
-Każde pole ma następujący wzorzec:
-\`\`\`
-## Etykieta Pola
-[typ-pola] (required?) {"właściwość": "wartość", "właściwość2": "wartość2"}
-Opcjonalny tekst pomocy, który wyjaśnia pole
-\`\`\`
-
-## Typy Pól
-- **text**: Jednowierszowe pole tekstowe
-- **textarea**: Wielowierszowe pole tekstowe  
-- **email**: Pole email z walidacją
-- **number**: Pole numeryczne
-- **date**: Selektor daty
-- **select**: Lista rozwijana (wymaga opcji)
-- **radio**: Wybór jednej opcji (wymaga opcji)
-- **checkbox**: Wybór wielu opcji (wymaga opcji)
-- **file**: Przesyłanie plików
-
-## Format Właściwości
-Właściwości muszą używać ścisłego formatu JSON z cudzysłowami:
-\`\`\`
-{"właściwość": "wartość", "tablica": ["element1", "element2"], "liczba": 5, "boolean": true}
-\`\`\`
-
-## Właściwości według Typu Pola
-
-### Pola Tekstowe (text, textarea, email, number)
-- \`"placeholder"\`: Tekst zastępczy wyświetlany w polu
-
-### Pola Wyboru (select, radio, checkbox) - WYMAGANE
-- \`"options"\`: Tablica opcji jak \`["Opcja 1", "Opcja 2"]\` (WYMAGANE)
-
-### Pola Przesyłania Plików
-- \`"acceptedFileTypes"\`: Tablica dozwolonych rozszerzeń jak \`[".pdf", ".jpg"]\`
-- \`"maxFileSize"\`: Maksymalny rozmiar pliku w MB (np. \`5\`)
-- \`"multiple"\`: Pozwól na wiele plików (\`true\` lub \`false\`)
-
-## Przykłady
-
-### Proste pole tekstowe:
-\`\`\`
-## Imię i Nazwisko
-[text] (required)
-Wprowadź swoje pełne imię i nazwisko
-\`\`\`
-
-### Email z symbolem zastępczym:
-\`\`\`
-## Email Kontaktowy
-[email] (required) {"placeholder": "uzytkownik@example.com"}
-Wyślemy aktualizacje na ten adres
-\`\`\`
-
-### Lista rozwijana z opcjami:
-\`\`\`
-## Ulubiony Kolor
-[select] {"options": ["Czerwony", "Niebieski", "Zielony", "Żółty"]}
-Wybierz swój ulubiony kolor
-\`\`\`
-
-### Przesyłanie plików z ograniczeniami:
-\`\`\`
-## Zdjęcie Profilowe
-[file] {"acceptedFileTypes": [".jpg", ".png", ".gif"], "maxFileSize": 2}
-Prześlij zdjęcie profilowe (maks 2MB)
-\`\`\`
-
-### Wiele pól wyboru:
-\`\`\`
-## Umiejętności
-[checkbox] {"options": ["JavaScript", "Python", "React", "Node.js"]}
-Zaznacz wszystkie umiejętności programistyczne, które posiadasz
-\`\`\`
-
-## Ważne Uwagi
-- Użyj \`(required)\` lub \`(required?)\`, aby oznaczyć pola jako obowiązkowe
-- Właściwości muszą używać ścisłego formatu JSON z cudzysłowami
-- Pola wyboru (select, radio, checkbox) MUSZĄ zawierać tablicę "options"
-- Tekst pomocy może obejmować wiele linii po linii konfiguracyjnej
-- Etykiety pól powinny być jasne i opisowe`;
+  static getSyntaxDocumentation(): {
+    overview: string;
+    examples: Record<FormFieldType, string>;
+    rules: string[];
+    tips: string[];
+  } {
+    return {
+      overview: `
+        Składnia Markdown dla formularzy pozwala na definiowanie pól w prosty i czytelny sposób.
+        Każde pole składa się z nagłówka (##), typu w nawiasach kwadratowych, opcjonalnych właściwości i tekstu pomocy.
+      `,
+      examples: this.generateExamples(),
+      rules: [
+        'Każde pole musi rozpoczynać się nagłówkiem ## z nazwą pola',
+        'Typ pola musi być w nawiasach kwadratowych [typ]',
+        'Aby pole było wymagane, dodaj (required) po typie',
+        'Właściwości pola definiuj w JSON: {"klucz": "wartość"}',
+        'Tekst pomocy umieść w nowej linii po definicji pola',
+        'Dozwolone typy: text, textarea, email, number, date, select, radio, checkbox, file, table, separator',
+        'Pola select, radio, checkbox wymagają tablicy "options"',
+        'Pola table wymagają tablicy "columns"',
+        'Separatory (---) są automatycznie konwertowane na pola separator'
+      ],
+      tips: [
+        'Używaj opisowych nazw pól dla lepszej czytelności',
+        'Dodawaj tekst pomocy, aby wyjaśnić przeznaczenie pola',
+        'Testuj swój markdown przed importem używając podglądu',
+        'Używaj spójnych konwencji nazewniczych w całym formularzu',
+        'Sprawdzaj eksport i reimport aby upewnić się o zgodności danych'
+      ]
+    };
   }
 }

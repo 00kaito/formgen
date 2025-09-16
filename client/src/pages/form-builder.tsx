@@ -27,7 +27,7 @@ import FormFieldPalette from "@/components/form-field-palette";
 import FormFieldRenderer from "@/components/form-field-renderer";
 import FieldPropertiesPanel from "@/components/field-properties-panel";
 import MarkdownFormConverter from "@/components/markdown-form-converter";
-import { MarkdownFormParser } from "@/lib/markdownParser";
+import { MarkdownFormParser } from "@shared/markdownParser";
 import { LayersIcon } from "lucide-react";
 
 export default function FormBuilder() {
@@ -299,7 +299,12 @@ export default function FormBuilder() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <MarkdownFormConverter onFieldsConverted={handleMarkdownFields} />
+              <MarkdownFormConverter 
+                onFieldsConverted={handleMarkdownFields}
+                currentFields={formFields}
+                formTitle={formTitle}
+                formDescription={formDescription}
+              />
               <Button 
                 variant="outline" 
                 onClick={handleExportMarkdown}

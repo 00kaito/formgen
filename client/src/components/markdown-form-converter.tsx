@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -7,14 +7,22 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FileText, Import, AlertCircle, CheckCircle, Book } from "lucide-react";
 import { FormField } from "@shared/schema";
-import { MarkdownFormParser } from "@/lib/markdownParser";
+import { MarkdownFormParser } from "@shared/markdownParser";
 import { useToast } from "@/hooks/use-toast";
 
 interface MarkdownFormConverterProps {
   onFieldsConverted: (fields: FormField[]) => void;
+  currentFields?: FormField[];
+  formTitle?: string;
+  formDescription?: string;
 }
 
-export default function MarkdownFormConverter({ onFieldsConverted }: MarkdownFormConverterProps) {
+export default function MarkdownFormConverter({ 
+  onFieldsConverted, 
+  currentFields = [], 
+  formTitle, 
+  formDescription 
+}: MarkdownFormConverterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [markdown, setMarkdown] = useState("");
   const [previewFields, setPreviewFields] = useState<FormField[]>([]);
@@ -22,12 +30,31 @@ export default function MarkdownFormConverter({ onFieldsConverted }: MarkdownFor
   const [isConverting, setIsConverting] = useState(false);
   const { toast } = useToast();
 
-  const handlePreview = () => {
+  // Prepopulate with current form data when dialog opens
+  useEffect(() => {
+    if (isOpen && currentFields.length > 0 && !markdown.trim()) {
+      const currentMarkdown = MarkdownFormParser.exportToMarkdown(
+        currentFields,
+        formTitle,
+        formDescription
+      );
+      setMarkdown(currentMarkdown);
+      // Auto-preview the current form with the fresh markdown text
+      setTimeout(() => {
+        handlePreview(currentMarkdown);
+      }, 100);
+    }
+  }, [isOpen, currentFields, formTitle, formDescription]);
+
+  const handlePreview = (markdownText?: string) => {
     setIsConverting(true);
     setErrors([]);
     
+    // Use provided markdown text or current state
+    const textToPreview = markdownText ?? markdown;
+    
     try {
-      const result = MarkdownFormParser.parseMarkdown(markdown);
+      const result = MarkdownFormParser.parseMarkdown(textToPreview);
       setPreviewFields(result.fields);
       
       // Set detailed errors with section information
@@ -91,7 +118,7 @@ Zaznacz wszystkie, które dotyczą Ciebie
 Prześlij swoje CV (plik PDF lub Word)`;
 
     setMarkdown(exampleMarkdown);
-    handlePreview();
+    handlePreview(exampleMarkdown);
   };
 
   const examples = MarkdownFormParser.generateExamples();
@@ -129,14 +156,34 @@ Prześlij swoje CV (plik PDF lub Word)`;
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Wejście Markdown</h3>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={loadExample}
-                    data-testid="button-load-example"
-                  >
-                    Załaduj Przykład
-                  </Button>
+                  <div className="flex gap-2">
+                    {currentFields.length > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                          const currentMarkdown = MarkdownFormParser.exportToMarkdown(
+                            currentFields,
+                            formTitle,
+                            formDescription
+                          );
+                          setMarkdown(currentMarkdown);
+                          handlePreview();
+                        }}
+                        data-testid="button-load-current"
+                      >
+                        Załaduj Obecny Formularz
+                      </Button>
+                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={loadExample}
+                      data-testid="button-load-example"
+                    >
+                      Załaduj Przykład
+                    </Button>
+                  </div>
                 </div>
                 
                 <Textarea
@@ -149,7 +196,7 @@ Prześlij swoje CV (plik PDF lub Word)`;
                 
                 <div className="flex space-x-2">
                   <Button 
-                    onClick={handlePreview} 
+                    onClick={() => handlePreview()} 
                     disabled={!markdown.trim() || isConverting}
                     className="flex-1"
                     data-testid="button-preview"
@@ -277,7 +324,7 @@ Prześlij swoje CV (plik PDF lub Word)`;
                     <h3 className="text-lg font-semibold mb-3">Kompletny Przewodnik Składni</h3>
                     <div className="prose prose-sm dark:prose-invert">
                       <pre className="whitespace-pre-wrap text-sm">
-                        {documentation}
+                        {typeof documentation === 'string' ? documentation : JSON.stringify(documentation, null, 2)}
                       </pre>
                     </div>
                   </div>

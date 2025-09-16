@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Download, Share, Eye, Trash2, Search, Filter, Loader2, FileText, FileSpreadsheet, ChevronDown, ExternalLink } from "lucide-react";
+import { ArrowLeft, Download, Share, Eye, Trash2, Search, Filter, Loader2, FileText, FileSpreadsheet, ChevronDown, ExternalLink, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -67,7 +67,7 @@ export default function ResponsesView() {
   };
 
   const exportMutation = useMutation({
-    mutationFn: async (format: 'csv' | 'excel') => {
+    mutationFn: async (format: 'csv' | 'excel' | 'markdown') => {
       const response = await fetch(`/api/form-templates/${id}/export?format=${format}`);
       if (!response.ok) {
         const error = await response.json();
@@ -80,29 +80,33 @@ export default function ResponsesView() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${formTemplate?.title || "form"}-responses.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      let fileExtension = 'csv';
+      if (format === 'excel') fileExtension = 'xlsx';
+      if (format === 'markdown') fileExtension = 'md';
+      
+      a.download = `${formTemplate?.title || "form"}-responses.${fileExtension}`;
       a.click();
       window.URL.revokeObjectURL(url);
 
       toast({
-        title: "Export successful",
-        description: `Responses have been exported as ${format.toUpperCase()}`,
+        title: "Eksport pomyślny",
+        description: `Odpowiedzi zostały wyeksportowane jako ${format.toUpperCase()}`,
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Export failed",
+        title: "Eksport nieudany",
         description: error.message,
         variant: "destructive",
       });
     },
   });
 
-  const handleExport = (format: 'csv' | 'excel') => {
+  const handleExport = (format: 'csv' | 'excel' | 'markdown') => {
     if (responses.length === 0) {
       toast({
-        title: "No data to export",
-        description: "There are no responses to export",
+        title: "Brak danych do eksportu",
+        description: "Nie ma odpowiedzi do wyeksportowania",
         variant: "destructive",
       });
       return;
@@ -180,14 +184,21 @@ export default function ResponsesView() {
                     data-testid="export-csv"
                   >
                     <FileText className="w-4 h-4 mr-2" />
-                    Export as CSV
+                    Eksportuj jako CSV
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={() => handleExport('excel')}
                     data-testid="export-excel"
                   >
                     <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    Export as Excel
+                    Eksportuj jako Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleExport('markdown')}
+                    data-testid="export-markdown"
+                  >
+                    <FileDown className="w-4 h-4 mr-2" />
+                    Eksportuj jako Markdown
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -368,6 +379,37 @@ export default function ResponsesView() {
                                   </div>
                                 ) : (
                                   <span>{String(value)}</span>
+                                )}
+                              </div>
+                            ) : field?.type === 'table' ? (
+                              <div className="space-y-2">
+                                {Array.isArray(value) && value.length > 0 ? (
+                                  <div className="border rounded-md">
+                                    <table className="w-full text-xs">
+                                      <thead className="bg-muted">
+                                        <tr>
+                                          {field.columns?.map((column: string, index: number) => (
+                                            <th key={index} className="p-2 text-left font-medium">
+                                              {column}
+                                            </th>
+                                          ))}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {value.map((row: any, rowIndex: number) => (
+                                          <tr key={rowIndex} className="border-t">
+                                            {field.columns?.map((column: string, colIndex: number) => (
+                                              <td key={colIndex} className="p-2">
+                                                {row[column] || '-'}
+                                              </td>
+                                            ))}
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">Brak danych</span>
                                 )}
                               </div>
                             ) : (

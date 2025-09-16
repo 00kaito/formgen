@@ -3,9 +3,12 @@ import { createServer, type Server } from "http";
 import { storage as dbStorage } from "./storage";
 import { insertFormTemplateSchema, insertFormResponseSchema } from "@shared/schema";
 import { z } from "zod";
+// Import MarkdownFormParser for markdown export functionality
+import { MarkdownFormParser } from "@shared/markdownParser";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import slugify from "slugify";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Ensure uploads directory exists
@@ -22,7 +25,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     filename: function (req, file, cb) {
       // Generate unique filename with timestamp and random string
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+      
+      // Sanitize the original filename using slugify
+      const fileExtension = path.extname(file.originalname);
+      const filenameWithoutExt = path.basename(file.originalname, fileExtension);
+      const sanitizedName = slugify(filenameWithoutExt, { 
+        lower: true, 
+        strict: true, 
+        remove: /[*+~.()'"!:@]/g 
+      });
+      
+      // Fallback to 'file' if sanitization results in empty string
+      const safeName = sanitizedName || 'file';
+      
+      cb(null, file.fieldname + '-' + uniqueSuffix + '-' + safeName + fileExtension);
     }
   });
 
@@ -111,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (type.startsWith('.')) {
             return fileExtension === type.toLowerCase();
           } else if (type.includes('/')) {
-            return req.file.mimetype === type;
+            return req.file!.mimetype === type;
           } else {
             return fileExtension === `.${type.toLowerCase()}`;
           }
@@ -382,6 +398,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         await workbook.xlsx.write(res);
         res.end();
+      } else if (format === 'markdown') {
+        // Markdown export
+        const markdownContent = MarkdownFormParser.exportResponsesToMarkdown(
+          {
+            title: formTemplate.title,
+            description: formTemplate.description || undefined,
+            fields: formTemplate.fields
+          },
+          responses.map(response => ({
+            id: response.id,
+            responses: response.responses,
+            submittedAt: response.submittedAt
+          })),
+          true // Include form definition
+        );
+        
+        res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${formTemplate.title}-responses.md"`);
+        res.send(markdownContent);
       } else {
         // CSV export
         const headers = ['Response ID', 'Submitted At', 'Status'];
