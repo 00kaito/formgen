@@ -129,6 +129,7 @@ function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSu
                 field={field}
                 isPublic={true}
                 form={form}
+                templateId={template.id}
               />
             ))}
 

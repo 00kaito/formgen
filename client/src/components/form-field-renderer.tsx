@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, Upload } from "lucide-react";
 import { UseFormReturn } from "react-hook-form";
 
 interface FormFieldRendererProps {
@@ -16,6 +16,7 @@ interface FormFieldRendererProps {
   onClick?: () => void;
   onDelete?: () => void;
   form?: UseFormReturn<any>;
+  templateId?: string;
 }
 
 export default function FormFieldRenderer({ 
@@ -24,7 +25,8 @@ export default function FormFieldRenderer({
   isPublic = false, 
   onClick, 
   onDelete,
-  form 
+  form,
+  templateId 
 }: FormFieldRendererProps) {
   const renderField = () => {
     if (isPublic && form) {
@@ -214,6 +216,98 @@ export default function FormFieldRenderer({
                 <span className="text-sm text-foreground">{option}</span>
               </div>
             ))}
+          </div>
+        );
+      
+      case 'file':
+        const acceptedTypes = field.acceptedFileTypes?.join(',') || '*';
+        if (isLive) {
+          return (
+            <div className="space-y-2">
+              <Input
+                type="file"
+                accept={acceptedTypes}
+                multiple={field.multiple || false}
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length === 0) {
+                    formField.onChange('');
+                    return;
+                  }
+
+                  try {
+                    const uploadPromises = files.map(async (file) => {
+                      // Check file size
+                      if (field.maxFileSize && file.size > field.maxFileSize * 1024 * 1024) {
+                        throw new Error(`File ${file.name} is too large. Maximum size is ${field.maxFileSize}MB`);
+                      }
+
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      
+                      // Add templateId and fieldId for server-side validation
+                      if (templateId) {
+                        formData.append('templateId', templateId);
+                      }
+                      formData.append('fieldId', field.id);
+
+                      const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData,
+                      });
+
+                      if (!response.ok) {
+                        throw new Error(`Failed to upload ${file.name}`);
+                      }
+
+                      const result = await response.json();
+                      return {
+                        filename: result.filename,
+                        originalname: result.originalname,
+                        path: result.path,
+                        size: result.size,
+                        mimetype: result.mimetype
+                      };
+                    });
+
+                    const uploadedFiles = await Promise.all(uploadPromises);
+                    formField.onChange(field.multiple ? uploadedFiles : uploadedFiles[0]);
+                  } catch (error) {
+                    console.error('File upload error:', error);
+                    // Reset the input
+                    e.target.value = '';
+                    formField.onChange('');
+                  }
+                }}
+                className={isPublic ? "text-lg py-3" : undefined}
+                data-testid={`input-file-${field.id}`}
+              />
+              {field.acceptedFileTypes && field.acceptedFileTypes.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Accepted files: {field.acceptedFileTypes.join(', ')}
+                </p>
+              )}
+              {field.maxFileSize && (
+                <p className="text-xs text-muted-foreground">
+                  Max size: {field.maxFileSize}MB
+                </p>
+              )}
+            </div>
+          );
+        }
+        return (
+          <div className="space-y-2">
+            <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+              <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                {field.multiple ? 'Upload files' : 'Upload file'}
+              </p>
+              {field.acceptedFileTypes && field.acceptedFileTypes.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {field.acceptedFileTypes.join(', ')}
+                </p>
+              )}
+            </div>
           </div>
         );
       

@@ -50,6 +50,23 @@ export default function FieldPropertiesPanel({ selectedField, onUpdateField }: F
   };
 
   const hasOptions = ['select', 'radio', 'checkbox'].includes(localField.type);
+  const isFileField = localField.type === 'file';
+
+  const updateFileType = (index: number, value: string) => {
+    const newTypes = [...(localField.acceptedFileTypes || [])];
+    newTypes[index] = value;
+    updateField({ acceptedFileTypes: newTypes });
+  };
+
+  const addFileType = () => {
+    const newTypes = [...(localField.acceptedFileTypes || []), '.pdf'];
+    updateField({ acceptedFileTypes: newTypes });
+  };
+
+  const removeFileType = (index: number) => {
+    const newTypes = localField.acceptedFileTypes?.filter((_, i) => i !== index) || [];
+    updateField({ acceptedFileTypes: newTypes });
+  };
 
   return (
     <div className="w-80 bg-card border-l border-border p-6 overflow-y-auto">
@@ -138,6 +155,71 @@ export default function FieldPropertiesPanel({ selectedField, onUpdateField }: F
               </Button>
             </div>
           </div>
+        )}
+        
+        {isFileField && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Accepted File Types</label>
+              <div className="space-y-2">
+                {localField.acceptedFileTypes?.map((fileType, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <Input
+                      value={fileType}
+                      onChange={(e) => updateFileType(index, e.target.value)}
+                      placeholder=".pdf"
+                      className="flex-1"
+                      data-testid={`input-file-type-${index}`}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFileType(index)}
+                      disabled={(localField.acceptedFileTypes?.length || 0) <= 1}
+                      data-testid={`button-remove-file-type-${index}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addFileType}
+                  className="w-full"
+                  data-testid="button-add-file-type"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add File Type
+                </Button>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Max File Size (MB)</label>
+              <Input
+                type="number"
+                value={localField.maxFileSize || 10}
+                onChange={(e) => updateField({ maxFileSize: parseInt(e.target.value) || 10 })}
+                placeholder="10"
+                min="1"
+                max="100"
+                data-testid="input-max-file-size"
+              />
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="multiple"
+                checked={localField.multiple || false}
+                onCheckedChange={(checked) => updateField({ multiple: !!checked })}
+                data-testid="checkbox-multiple"
+              />
+              <label htmlFor="multiple" className="text-sm font-medium text-foreground">
+                Allow multiple files
+              </label>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Download, Share, Eye, Trash2, Search, Filter, Loader2, FileText, FileSpreadsheet, ChevronDown } from "lucide-react";
+import { ArrowLeft, Download, Share, Eye, Trash2, Search, Filter, Loader2, FileText, FileSpreadsheet, ChevronDown, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -327,9 +327,47 @@ export default function ResponsesView() {
                           <p className="text-sm font-medium text-foreground">
                             {field?.label || fieldId}
                           </p>
-                          <p className="text-sm text-muted-foreground">
-                            {Array.isArray(value) ? value.join(", ") : String(value)}
-                          </p>
+                          <div className="text-sm text-muted-foreground">
+                            {field?.type === 'file' ? (
+                              <div className="space-y-1">
+                                {Array.isArray(value) ? (
+                                  value.map((file: any, index: number) => (
+                                    <div key={index} className="flex items-center space-x-2">
+                                      <FileText className="w-4 h-4" />
+                                      <a 
+                                        href={file.path} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline"
+                                        data-testid={`link-file-${fieldId}-${index}`}
+                                      >
+                                        {file.originalname || file.filename}
+                                      </a>
+                                      <ExternalLink className="w-3 h-3" />
+                                    </div>
+                                  ))
+                                ) : value && typeof value === 'object' && value.path ? (
+                                  <div className="flex items-center space-x-2">
+                                    <FileText className="w-4 h-4" />
+                                    <a 
+                                      href={value.path} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                      data-testid={`link-file-${fieldId}`}
+                                    >
+                                      {value.originalname || value.filename}
+                                    </a>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </div>
+                                ) : (
+                                  <span>{String(value)}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span>{Array.isArray(value) ? value.join(", ") : String(value)}</span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

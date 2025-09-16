@@ -1,5 +1,5 @@
 import { FormField, FormFieldType } from "@shared/schema";
-import { Type, AlignLeft, ChevronDown, Circle, CheckSquare, Mail, Hash, Calendar } from "lucide-react";
+import { Type, AlignLeft, ChevronDown, Circle, CheckSquare, Mail, Hash, Calendar, Upload } from "lucide-react";
 
 interface FormFieldPaletteProps {
   onAddField: (field: FormField) => void;
@@ -59,6 +59,12 @@ export default function FormFieldPalette({ onAddField }: FormFieldPaletteProps) 
       icon: <CheckSquare className="text-primary" />,
       label: 'Checkboxes',
       description: 'Multiple choice'
+    },
+    {
+      type: 'file',
+      icon: <Upload className="text-primary" />,
+      label: 'File Upload',
+      description: 'Upload documents or images'
     }
   ];
 
@@ -87,6 +93,14 @@ export default function FormFieldPalette({ onAddField }: FormFieldPaletteProps) 
         return { ...baseField, label: 'Select One', options: ['Option A', 'Option B', 'Option C'] };
       case 'checkbox':
         return { ...baseField, label: 'Select All That Apply', options: ['Choice 1', 'Choice 2', 'Choice 3'] };
+      case 'file':
+        return { 
+          ...baseField, 
+          label: 'Upload File', 
+          acceptedFileTypes: ['.pdf', '.doc', '.docx', '.jpg', '.png'],
+          maxFileSize: 10,
+          multiple: false
+        };
       default:
         return baseField;
     }

@@ -1,14 +1,170 @@
-import type { Express } from "express";
+import express, { type Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage as dbStorage } from "./storage";
 import { insertFormTemplateSchema, insertFormResponseSchema } from "@shared/schema";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Ensure uploads directory exists
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  // Multer configuration for file uploads
+  const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, uploadsDir);
+    },
+    filename: function (req, file, cb) {
+      // Generate unique filename with timestamp and random string
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  });
+
+  const upload = multer({ 
+    storage: storage,
+    limits: {
+      fileSize: 100 * 1024 * 1024, // 100MB limit
+    },
+    fileFilter: function (req, file, cb) {
+      // Accept all file types for now
+      cb(null, true);
+    }
+  });
+
+  // Define globally safe MIME types for additional security
+  const SAFE_MIME_TYPES = new Set([
+    // Images
+    'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml',
+    // Documents
+    'application/pdf', 'text/plain', 'text/csv',
+    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    // Archives
+    'application/zip', 'application/x-zip-compressed',
+    // Audio/Video (common safe formats)
+    'audio/mpeg', 'audio/wav', 'video/mp4', 'video/mpeg'
+  ]);
+
+  // File Upload Route with security validation
+  app.post("/api/upload", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { templateId, fieldId } = req.body;
+      
+      // Validate required parameters
+      if (!templateId || !fieldId) {
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ 
+          message: "Template ID and Field ID are required for file uploads" 
+        });
+      }
+
+      // Get form template and field configuration
+      const template = await dbStorage.getFormTemplate(templateId);
+      if (!template) {
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({ message: "Form template not found" });
+      }
+
+      const field = template.fields.find(f => f.id === fieldId);
+      if (!field || field.type !== 'file') {
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ message: "Invalid file field" });
+      }
+
+      // Global security check - validate against safe MIME types
+      if (!SAFE_MIME_TYPES.has(req.file.mimetype)) {
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ 
+          message: `File type ${req.file.mimetype} is not allowed for security reasons` 
+        });
+      }
+
+      // Server-side file size validation
+      if (field.maxFileSize && req.file.size > field.maxFileSize * 1024 * 1024) {
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ 
+          message: `File size exceeds maximum allowed size of ${field.maxFileSize}MB` 
+        });
+      }
+
+      // Server-side MIME type validation against field constraints
+      if (field.acceptedFileTypes && field.acceptedFileTypes.length > 0) {
+        const fileExtension = path.extname(req.file.originalname).toLowerCase();
+        const isAccepted = field.acceptedFileTypes.some(type => {
+          // Handle both extension formats (.pdf, pdf) and MIME types
+          if (type.startsWith('.')) {
+            return fileExtension === type.toLowerCase();
+          } else if (type.includes('/')) {
+            return req.file.mimetype === type;
+          } else {
+            return fileExtension === `.${type.toLowerCase()}`;
+          }
+        });
+
+        if (!isAccepted) {
+          // Clean up uploaded file
+          fs.unlinkSync(req.file.path);
+          return res.status(400).json({ 
+            message: `File type not accepted. Allowed types: ${field.acceptedFileTypes.join(', ')}` 
+          });
+        }
+      }
+
+      const fileInfo = {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        path: `/uploads/${req.file.filename}`
+      };
+
+      res.json(fileInfo);
+    } catch (error) {
+      // Clean up uploaded file on error
+      if (req.file && fs.existsSync(req.file.path)) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error('Failed to clean up uploaded file:', cleanupError);
+        }
+      }
+      console.error('File upload error:', error);
+      res.status(500).json({ message: "Failed to upload file" });
+    }
+  });
+
+  // Serve uploaded files with security headers
+  app.use('/uploads', (req, res, next) => {
+    // Set security headers for file serving
+    res.setHeader('Content-Disposition', 'attachment');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    
+    // Use express.static to serve the file
+    express.static(uploadsDir)(req, res, next);
+  });
+
   // Form Templates Routes
   app.get("/api/form-templates", async (req, res) => {
     try {
-      const templates = await storage.getAllFormTemplates();
+      const templates = await dbStorage.getAllFormTemplates();
       res.json(templates);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch form templates" });
@@ -17,7 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/form-templates/:id", async (req, res) => {
     try {
-      const template = await storage.getFormTemplate(req.params.id);
+      const template = await dbStorage.getFormTemplate(req.params.id);
       if (!template) {
         return res.status(404).json({ message: "Form template not found" });
       }
@@ -29,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/public-forms/:shareableLink", async (req, res) => {
     try {
-      const template = await storage.getFormTemplateByShareableLink(req.params.shareableLink);
+      const template = await dbStorage.getFormTemplateByShareableLink(req.params.shareableLink);
       if (!template || !template.isActive) {
         return res.status(404).json({ message: "Form not found or inactive" });
       }
@@ -42,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/form-templates", async (req, res) => {
     try {
       const validatedData = insertFormTemplateSchema.parse(req.body);
-      const template = await storage.createFormTemplate(validatedData);
+      const template = await dbStorage.createFormTemplate(validatedData);
       res.status(201).json(template);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -55,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/form-templates/:id", async (req, res) => {
     try {
       const validatedData = insertFormTemplateSchema.partial().parse(req.body);
-      const template = await storage.updateFormTemplate(req.params.id, validatedData);
+      const template = await dbStorage.updateFormTemplate(req.params.id, validatedData);
       if (!template) {
         return res.status(404).json({ message: "Form template not found" });
       }
@@ -70,7 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/form-templates/:id", async (req, res) => {
     try {
-      const deleted = await storage.deleteFormTemplate(req.params.id);
+      const deleted = await dbStorage.deleteFormTemplate(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Form template not found" });
       }
@@ -83,7 +239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Form Responses Routes
   app.get("/api/form-templates/:id/responses", async (req, res) => {
     try {
-      const responses = await storage.getFormResponsesByTemplateId(req.params.id);
+      const responses = await dbStorage.getFormResponsesByTemplateId(req.params.id);
       res.json(responses);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch form responses" });
@@ -94,10 +250,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { formTemplateId } = req.query;
       if (formTemplateId && typeof formTemplateId === 'string') {
-        const responses = await storage.getFormResponsesByTemplateId(formTemplateId);
+        const responses = await dbStorage.getFormResponsesByTemplateId(formTemplateId);
         res.json(responses);
       } else {
-        const responses = await storage.getAllFormResponses();
+        const responses = await dbStorage.getAllFormResponses();
         res.json(responses);
       }
     } catch (error) {
@@ -108,7 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/form-responses", async (req, res) => {
     try {
       const validatedData = insertFormResponseSchema.parse(req.body);
-      const response = await storage.createFormResponse(validatedData);
+      const response = await dbStorage.createFormResponse(validatedData);
       res.status(201).json(response);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -120,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/form-responses/:id", async (req, res) => {
     try {
-      const deleted = await storage.deleteFormResponse(req.params.id);
+      const deleted = await dbStorage.deleteFormResponse(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Form response not found" });
       }
@@ -133,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Statistics Routes
   app.get("/api/form-templates/:id/stats", async (req, res) => {
     try {
-      const stats = await storage.getFormStats(req.params.id);
+      const stats = await dbStorage.getFormStats(req.params.id);
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch form stats" });
@@ -142,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
-      const stats = await storage.getDashboardStats();
+      const stats = await dbStorage.getDashboardStats();
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
@@ -152,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analytics", async (req, res) => {
     try {
       const { templateId } = req.query;
-      const analytics = await storage.getAnalytics(typeof templateId === 'string' ? templateId : undefined);
+      const analytics = await dbStorage.getAnalytics(typeof templateId === 'string' ? templateId : undefined);
       res.json(analytics);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch analytics" });
@@ -163,8 +319,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/form-templates/:id/export", async (req, res) => {
     try {
       const { format = 'csv' } = req.query;
-      const formTemplate = await storage.getFormTemplate(req.params.id);
-      const responses = await storage.getFormResponsesByTemplateId(req.params.id);
+      const formTemplate = await dbStorage.getFormTemplate(req.params.id);
+      const responses = await dbStorage.getFormResponsesByTemplateId(req.params.id);
       
       if (!formTemplate) {
         return res.status(404).json({ message: "Form template not found" });
