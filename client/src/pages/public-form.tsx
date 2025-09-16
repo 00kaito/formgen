@@ -66,6 +66,17 @@ const createFormSchema = (fields: FormField[]) => {
           fieldSchema = z.string().optional();
         }
         break;
+      case 'table':
+        if (field.required) {
+          fieldSchema = z.array(z.record(z.string())).min(1, `${field.label} is required`);
+        } else {
+          fieldSchema = z.array(z.record(z.string())).optional();
+        }
+        break;
+      case 'separator':
+        // Separators don't need validation as they don't collect data
+        fieldSchema = z.any().optional();
+        break;
       default:
         if (field.required) {
           fieldSchema = z.string().min(1, `${field.label} is required`);
