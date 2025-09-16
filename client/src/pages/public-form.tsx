@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import FormFieldRenderer from "@/components/form-field-renderer";
-import { Loader2, Copy, CheckCircle, ExternalLink } from "lucide-react";
-import type { FormField, FormTemplate } from "@shared/schema";
+import { Loader2, Copy, CheckCircle, ExternalLink, Save } from "lucide-react";
+import type { FormField, FormTemplate, FormResponse } from "@shared/schema";
 
 // Create dynamic form schema based on form fields
 const createFormSchema = (fields: FormField[]) => {
@@ -92,26 +92,49 @@ const createFormSchema = (fields: FormField[]) => {
 };
 
 // Form component that gets properly remounted when template changes
-function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSuccess: (responseData: any) => void }) {
+function PublicFormInner({ 
+  template, 
+  onSuccess, 
+  isDraft = false, 
+  existingDraftData = null, 
+  draftResponseLink = null 
+}: { 
+  template: FormTemplate; 
+  onSuccess: (responseData: any, isDraft?: boolean) => void;
+  isDraft?: boolean;
+  existingDraftData?: Record<string, any> | null;
+  draftResponseLink?: string | null;
+}) {
   const { toast } = useToast();
   const formSchema = createFormSchema(template.fields);
   
   const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: {},
+    defaultValues: existingDraftData || {},
   });
 
   const submitMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const response = await apiRequest("POST", "/api/form-responses", {
-        formTemplateId: template.id,
-        responses: data,
-        isComplete: true,
-      });
+      let response;
+      if (draftResponseLink) {
+        // Update existing draft as complete
+        response = await apiRequest("PUT", `/api/form-responses/draft/${draftResponseLink}`, {
+          formTemplateId: template.id,
+          responses: data,
+          isComplete: true,
+        });
+      } else {
+        // Create new complete response
+        response = await apiRequest("POST", "/api/form-responses", {
+          formTemplateId: template.id,
+          responses: data,
+          isComplete: true,
+        });
+      }
       return response.json();
     },
     onSuccess: (responseData) => {
-      onSuccess(responseData);
+      onSuccess(responseData, false);
       toast({
         title: "Form submitted successfully!",
         description: "Thank you for your response.",
@@ -126,8 +149,51 @@ function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSu
     },
   });
 
+  const saveDraftMutation = useMutation({
+    mutationFn: async (data: Record<string, any>) => {
+      let response;
+      if (draftResponseLink) {
+        // Update existing draft
+        response = await apiRequest("PUT", `/api/form-responses/draft/${draftResponseLink}`, {
+          formTemplateId: template.id,
+          responses: data,
+          isComplete: false,
+        });
+      } else {
+        // Create new draft
+        response = await apiRequest("POST", "/api/form-responses/draft", {
+          formTemplateId: template.id,
+          responses: data,
+          isComplete: false,
+        });
+      }
+      return response.json();
+    },
+    onSuccess: (responseData) => {
+      onSuccess(responseData, true);
+      toast({
+        title: "Draft saved successfully!",
+        description: "You can return to complete this form later.",
+      });
+      // Invalidate queries to refresh any draft data
+      queryClient.invalidateQueries({ queryKey: ["/api/draft-responses"] });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to save draft",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: Record<string, any>) => {
     submitMutation.mutate(data);
+  };
+
+  const onSaveDraft = () => {
+    const currentData = form.getValues();
+    saveDraftMutation.mutate(currentData);
   };
 
   return (
@@ -145,11 +211,11 @@ function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSu
               />
             ))}
 
-            <div className="pt-6">
+            <div className="pt-6 space-y-4">
               <Button
                 type="submit"
                 className="w-full"
-                disabled={submitMutation.isPending}
+                disabled={submitMutation.isPending || saveDraftMutation.isPending}
                 data-testid="button-submit-form"
               >
                 {submitMutation.isPending ? (
@@ -161,10 +227,36 @@ function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSu
                   "Submit Form"
                 )}
               </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={onSaveDraft}
+                disabled={submitMutation.isPending || saveDraftMutation.isPending}
+                data-testid="button-save-draft"
+              >
+                {saveDraftMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving Draft...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Draft
+                  </>
+                )}
+              </Button>
             </div>
 
             <div className="text-center text-sm text-muted-foreground pt-4">
               <p>Your response will be kept confidential.</p>
+              {(isDraftMode || draftResponseLink) && (
+                <p className="mt-2 text-blue-600">
+                  💾 Draft mode: Your progress is automatically saved
+                </p>
+              )}
             </div>
           </form>
         </Form>
@@ -175,18 +267,37 @@ function PublicFormInner({ template, onSuccess }: { template: FormTemplate; onSu
 
 export default function PublicForm() {
   const { shareableLink } = useParams<{ shareableLink: string }>();
+  const [location] = useLocation();
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [responseData, setResponseData] = useState<any>(null);
+  const [isDraftSaved, setIsDraftSaved] = useState(false);
   const { toast } = useToast();
 
+  // Detect if this is a draft scenario based on URL parameters
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const isDraftMode = urlParams.has('draft');
+  const draftResponseLink = urlParams.get('draftId');
+
+  // Load form template
   const { data: formTemplate, isLoading, error } = useQuery<FormTemplate>({
     queryKey: ["/api/public-forms", shareableLink],
   });
 
-  if (isLoading) {
+  // Load existing draft data if available
+  const { data: existingDraft, isLoading: draftLoading } = useQuery<FormResponse>({
+    queryKey: ["/api/draft-responses", draftResponseLink],
+    enabled: !!draftResponseLink,
+  });
+
+  if (isLoading || draftLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+          <p className="text-muted-foreground">
+            {draftLoading ? "Loading draft..." : "Loading form..."}
+          </p>
+        </div>
       </div>
     );
   }
@@ -200,6 +311,109 @@ export default function PublicForm() {
             <p className="text-muted-foreground">
               The form you're looking for doesn't exist or has been deactivated.
             </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isDraftSaved && responseData) {
+    const draftLink = `${window.location.origin}/form/${shareableLink}?draftId=${responseData.shareableResponseLink}`;
+    
+    const copyToClipboard = async () => {
+      try {
+        await navigator.clipboard.writeText(draftLink);
+        toast({
+          title: "Link copied!",
+          description: "Draft link has been copied to clipboard.",
+        });
+      } catch (err) {
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = draftLink;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        toast({
+          title: "Link copied!",
+          description: "Draft link has been copied to clipboard.",
+        });
+      }
+    };
+
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-full max-w-2xl mx-4">
+          <CardContent className="pt-8 pb-8 px-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Save className="w-8 h-8 text-blue-600" />
+              </div>
+              <h1 className="text-3xl font-bold text-foreground mb-4" data-testid="text-draft-saved-title">
+                Draft Saved!
+              </h1>
+              <p className="text-lg text-muted-foreground mb-6" data-testid="text-draft-saved-description">
+                Your progress has been saved. You can return to complete this form later.
+              </p>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+              <h2 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
+                <ExternalLink className="w-5 h-5 mr-2" />
+                Your Draft Link
+              </h2>
+              <p className="text-sm text-blue-700 mb-4">
+                Save this link to continue editing your draft:
+              </p>
+              
+              <div className="flex items-center space-x-2 p-3 bg-white border border-blue-300 rounded">
+                <input 
+                  type="text" 
+                  value={draftLink} 
+                  readOnly 
+                  className="flex-1 text-sm bg-transparent border-none outline-none text-blue-800"
+                  data-testid="input-draft-link"
+                />
+                <Button
+                  onClick={copyToClipboard}
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0"
+                  data-testid="button-copy-draft-link"
+                >
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copy
+                </Button>
+              </div>
+              
+              <div className="mt-4 flex space-x-2">
+                <Button
+                  onClick={() => window.open(draftLink, '_blank')}
+                  variant="default"
+                  className="flex-1"
+                  data-testid="button-continue-draft"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Continue Editing
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsDraftSaved(false);
+                    setResponseData(null);
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                  data-testid="button-new-draft"
+                >
+                  Start New Draft
+                </Button>
+              </div>
+            </div>
+            
+            <div className="text-center text-sm text-muted-foreground">
+              <p>💡 Tip: Bookmark this link to quickly return to your draft</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -313,13 +527,40 @@ export default function PublicForm() {
           )}
         </div>
 
+        {/* Form status indicator */}
+        {(isDraftMode || draftResponseLink || existingDraft) && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Save className="w-5 h-5 text-blue-600" />
+              <div>
+                <p className="text-blue-900 font-medium">
+                  {existingDraft ? "Editing Draft" : "Draft Mode"}
+                </p>
+                <p className="text-blue-700 text-sm">
+                  {existingDraft 
+                    ? "Continue from where you left off. Your changes will be saved automatically."
+                    : "Your progress will be saved as a draft that you can return to later."
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Form */}
         <PublicFormInner 
-          key={formTemplate.id} 
+          key={`${formTemplate.id}-${draftResponseLink || 'new'}`} 
           template={formTemplate} 
-          onSuccess={(data) => {
+          isDraft={isDraftMode || !!draftResponseLink}
+          existingDraftData={existingDraft?.responses || null}
+          draftResponseLink={draftResponseLink}
+          onSuccess={(data, isDraft) => {
             setResponseData(data);
-            setIsSubmitted(true);
+            if (isDraft) {
+              setIsDraftSaved(true);
+            } else {
+              setIsSubmitted(true);
+            }
           }} 
         />
       </div>
