@@ -119,7 +119,7 @@ export default function FormBuilder() {
   };
 
   const handleMarkdownFields = (fields: FormField[]) => {
-    setFormFields([...formFields, ...fields]);
+    setFormFields(fields);
   };
 
   const handleUpdateField = (updatedField: FormField) => {

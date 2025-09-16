@@ -91,8 +91,8 @@ export default function MarkdownFormConverter({
     setErrors([]);
     
     toast({
-      title: "Pola zostały pomyślnie zaimportowane!",
-      description: `${previewFields.length} ${previewFields.length === 1 ? 'pole zostało dodane' : previewFields.length < 5 ? 'pola zostały dodane' : 'pól zostało dodanych'} do formularza`,
+      title: "Formularz został zastąpiony!",
+      description: `${previewFields.length} ${previewFields.length === 1 ? 'pole zostało zaimportowane' : previewFields.length < 5 ? 'pola zostały zaimportowane' : 'pól zostało zaimportowanych'} do formularza`,
     });
   };
 
