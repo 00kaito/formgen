@@ -231,18 +231,21 @@ export class FormBackupUtils {
       
       const formData = new FormData();
       
-      // Create a Blob from the file buffer
-      const fileBlob = new Blob([fileBuffer], { type: 'text/plain' });
-      console.log(`[WEBHOOK] Created Blob with size: ${fileBuffer.length} bytes, type: text/plain`);
+      // Create a Blob from the file buffer (use application/octet-stream like curl does)
+      const fileBlob = new Blob([fileBuffer], { type: 'application/octet-stream' });
+      console.log(`[WEBHOOK] Created Blob with size: ${fileBuffer.length} bytes, type: application/octet-stream`);
       
-      // Add the file to FormData with filename
+      // Add the file to FormData with filename (exactly like curl --form 'data=@file')
       formData.append('data', fileBlob, path.basename(txtFilePath));
       console.log(`[WEBHOOK] Added file to FormData: ${path.basename(txtFilePath)}`);
       
       // Add additional field with form title
       formData.append('additionalField', formTitle);
       
-      console.log(`[WEBHOOK] FormData prepared, sending POST request to ${webhookUrl}`);
+      console.log(`[WEBHOOK] FormData prepared with:`)
+      console.log(`[WEBHOOK]   - data: file "${path.basename(txtFilePath)}" (${fileBuffer.length} bytes, application/octet-stream)`)
+      console.log(`[WEBHOOK]   - additionalField: "${formTitle}"`)
+      console.log(`[WEBHOOK] Sending POST request to ${webhookUrl}`);
 
       // Send POST request
       const response = await fetch(webhookUrl, {
