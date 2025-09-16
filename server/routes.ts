@@ -8,6 +8,8 @@ import { z } from "zod";
 import { MarkdownFormParser } from "@shared/markdownParser";
 // Import FormBackupUtils for disk backup functionality
 import { FormBackupUtils } from "./backup-utils";
+// Import AI service for generating follow-up questions
+import { aiService } from "./ai-service";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -354,17 +356,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/form-responses", async (req, res) => {
     try {
       const validatedData = insertFormResponseSchema.parse(req.body);
+      
+      // Create initial response without AI fields
       const response = await dbStorage.createFormResponse(validatedData);
       
-      // Return response immediately to avoid blocking user
-      res.status(201).json(response);
-      
-      // Create backup files asynchronously (non-blocking) only for completed responses
+      // If this is a complete response, generate AI follow-up questions
       if (response.isComplete) {
         setImmediate(async () => {
           try {
             const formTemplate = await dbStorage.getFormTemplate(response.formTemplateId);
             if (formTemplate) {
+              // Generate AI follow-up questions
+              try {
+                const aiResult = await aiService.generateFollowUpQuestions(formTemplate, response);
+                const aiFormFields = aiService.convertAIQuestionsToFormFields(aiResult.questions);
+                
+                // Update the response with AI-generated fields
+                if (aiFormFields.length > 0) {
+                  const storage = dbStorage as any;
+                  if (storage.db) {
+                    // PostgreSQL update
+                    await storage.db.update(formResponses)
+                      .set({ aiGeneratedFields: aiFormFields })
+                      .where(eq(formResponses.id, response.id));
+                  } else {
+                    // In-memory storage update
+                    const existingResponse = await dbStorage.getFormResponse(response.id);
+                    if (existingResponse) {
+                      existingResponse.aiGeneratedFields = aiFormFields;
+                    }
+                  }
+                  
+                  console.log(`Generated ${aiFormFields.length} AI follow-up questions for response ${response.id}`);
+                }
+              } catch (aiError) {
+                console.error('AI question generation failed:', aiError);
+              }
+              
+              // Create backup files
               const backupResult = await FormBackupUtils.createBackups(formTemplate, response);
               if (!backupResult.success) {
                 console.warn('Async backup creation failed:', backupResult.errors);
@@ -378,6 +407,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         });
       }
+      
+      // Return response immediately to avoid blocking user
+      res.status(201).json(response);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid response data", errors: error.errors });

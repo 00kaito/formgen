@@ -173,6 +173,7 @@ export class MemStorage implements IStorage {
       id,
       shareableResponseLink,
       isComplete: insertResponse.isComplete || false,
+      aiGeneratedFields: insertResponse.aiGeneratedFields as FormField[] | null || null,
       submittedAt: new Date(),
     };
     
@@ -480,9 +481,11 @@ export class PostgreSQLStorage implements IStorage {
     const shareableResponseLink = randomUUID();
     
     const result = await this.db.insert(formResponses).values({
-      ...insertResponse,
-      shareableResponseLink,
+      formTemplateId: insertResponse.formTemplateId,
+      responses: insertResponse.responses,
       isComplete: insertResponse.isComplete || false,
+      aiGeneratedFields: insertResponse.aiGeneratedFields as FormField[] | null || null,
+      shareableResponseLink,
     }).returning();
     
     return result[0];

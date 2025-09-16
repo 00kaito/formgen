@@ -10,7 +10,7 @@ import { Form } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import FormFieldRenderer from "@/components/form-field-renderer";
-import { Loader2, Copy, CheckCircle, ExternalLink, Save } from "lucide-react";
+import { Loader2, Copy, CheckCircle, ExternalLink, Save, Sparkles } from "lucide-react";
 import type { FormField, FormTemplate, FormResponse } from "@shared/schema";
 
 // Create dynamic form schema based on form fields
@@ -252,7 +252,7 @@ function PublicFormInner({
 
             <div className="text-center text-sm text-muted-foreground pt-4">
               <p>Your response will be kept confidential.</p>
-              {(isDraftMode || draftResponseLink) && (
+              {(draftResponseLink) && (
                 <p className="mt-2 text-blue-600">
                   💾 Draft mode: Your progress is automatically saved
                 </p>
@@ -422,6 +422,9 @@ export default function PublicForm() {
 
   if (isSubmitted && responseData) {
     const responseLink = `${window.location.origin}/response/${responseData.shareableResponseLink}`;
+    const followupLink = responseData.aiGeneratedFields && responseData.aiGeneratedFields.length > 0 
+      ? `${window.location.origin}/followup/${responseData.shareableResponseLink}` 
+      : null;
     
     const copyToClipboard = async () => {
       try {
@@ -460,6 +463,32 @@ export default function PublicForm() {
                 Your response has been successfully submitted.
               </p>
             </div>
+
+            {/* AI Follow-up Notification */}
+            {followupLink && (
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6 mb-6">
+                <h2 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Additional Questions Generated
+                </h2>
+                <p className="text-sm text-blue-700 mb-4">
+                  Based on your responses, we've generated some additional questions that will help us better understand your requirements.
+                </p>
+                
+                <Button
+                  onClick={() => window.open(followupLink, '_blank')}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  data-testid="button-followup-questions"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Answer Follow-up Questions
+                </Button>
+                
+                <p className="text-xs text-blue-600 mt-2 text-center">
+                  ✨ These questions were intelligently generated based on your answers
+                </p>
+              </div>
+            )}
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
               <h2 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">

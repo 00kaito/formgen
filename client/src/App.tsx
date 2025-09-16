@@ -13,6 +13,7 @@ import ResponsesView from "@/pages/responses-view";
 import Analytics from "@/pages/analytics";
 import AuthPage from "@/pages/auth-page";
 import ResponseView from "@/pages/response-view";
+import AIFollowUpForm from "@/pages/ai-followup-form";
 
 function Router() {
   return (
@@ -25,6 +26,9 @@ function Router() {
       
       {/* Public route for response viewing */}
       <Route path="/response/:shareableResponseLink" component={ResponseView} />
+      
+      {/* Public route for AI follow-up questions */}
+      <Route path="/followup/:shareableResponseLink" component={AIFollowUpForm} />
       
       {/* Protected admin routes */}
       <Route path="/">
