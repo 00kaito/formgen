@@ -1,0 +1,22 @@
+============================================================
+FORMULARZ: asdf
+============================================================
+
+Data złożenia: 16.09.2025, 18:12:00
+ID odpowiedzi: 9c22e118-15b1-4a0f-bdaf-d8aefe47fa73
+Link do odpowiedzi: 2d725555-27f2-4220-a471-2839e7c1093b
+Status: Kompletna
+
+OPIS FORMULARZA:
+(brak opisu)
+
+ODPOWIEDZI:
+----------------------------------------
+
+1. Text Field
+   Typ: text
+   Wymagane: Nie
+   Odpowiedź: 345345
+
+============================================================
+Backup wygenerowany: 16.09.2025, 18:12:00
