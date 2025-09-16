@@ -521,6 +521,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get form response with AI fields by shareable link (for follow-up form)
+  app.get("/api/form-responses/by-link/:shareableResponseLink", async (req, res) => {
+    try {
+      const response = await dbStorage.getFormResponseByShareableLink(req.params.shareableResponseLink);
+      if (!response) {
+        return res.status(404).json({ message: "Response not found" });
+      }
+      res.json(response);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch response" });
+    }
+  });
+
   app.delete("/api/form-responses/:id", async (req, res) => {
     try {
       const deleted = await dbStorage.deleteFormResponse(req.params.id);

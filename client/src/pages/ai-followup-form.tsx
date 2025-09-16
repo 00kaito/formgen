@@ -88,10 +88,6 @@ export default function AIFollowUpForm() {
   // Fetch the original form response with AI-generated fields
   const { data: formResponse, isLoading, error } = useQuery<FormResponse>({
     queryKey: ["/api/form-responses/by-link", shareableResponseLink],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/draft-responses/${shareableResponseLink}`);
-      return response.json();
-    },
   });
 
   const aiFields = formResponse?.aiGeneratedFields || [];
@@ -104,7 +100,8 @@ export default function AIFollowUpForm() {
 
   const submitMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const response = await apiRequest("POST", "/api/form-responses", {
+      // Update the existing response with additional answers and mark as complete
+      const response = await apiRequest("PUT", `/api/form-responses/draft/${shareableResponseLink}`, {
         formTemplateId: formResponse?.formTemplateId,
         responses: {
           // Include original responses
@@ -112,13 +109,14 @@ export default function AIFollowUpForm() {
           // Add AI follow-up responses
           ...data
         },
-        isComplete: true,
+        isComplete: true, // Mark as complete after follow-up
       });
       return response.json();
     },
     onSuccess: (responseData) => {
       setIsSubmitted(true);
       queryClient.invalidateQueries({ queryKey: ["/api/form-responses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/form-responses/by-link", shareableResponseLink] });
       toast({
         title: "Follow-up form submitted successfully!",
         description: "Thank you for providing additional information.",

@@ -63,10 +63,6 @@ export class AIService {
     template: FormTemplate, 
     response: FormResponse
   ): Promise<AIAnalysisResult> {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
-    }
-
     const formattedData = this.formatFormDataForAI(template, response);
     
     const prompt = `You are a business analyst. You are gathering data for a development team so they can implement a business process automation.
@@ -103,6 +99,12 @@ Guidelines for questions:
 Respond only with valid JSON.`;
 
     try {
+      // Check if API key is available, if not use fallback
+      if (!process.env.OPENAI_API_KEY) {
+        console.warn('OPENAI_API_KEY not configured, using fallback questions');
+        throw new Error('OPENAI_API_KEY not configured');
+      }
+
       const completion = await openai.chat.completions.create({
         model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
         messages: [
@@ -144,11 +146,7 @@ Respond only with valid JSON.`;
     } catch (error) {
       console.error('AI Service Error:', error);
       
-      if (error instanceof Error && error.message.includes('API key')) {
-        throw new Error('OpenAI API key is invalid or missing');
-      }
-      
-      // Return fallback questions if AI fails
+      // Always return fallback questions if AI fails for any reason
       return {
         analysis: 'AI analysis failed, providing default follow-up questions',
         questions: [
