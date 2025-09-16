@@ -6,8 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Upload } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Edit, Trash2, Upload, Plus, X } from "lucide-react";
 import { UseFormReturn } from "react-hook-form";
+import { useState } from "react";
 
 interface FormFieldRendererProps {
   field: FormFieldType;
@@ -307,6 +309,110 @@ export default function FormFieldRenderer({
                   {field.acceptedFileTypes.join(', ')}
                 </p>
               )}
+            </div>
+          </div>
+        );
+      
+      case 'table':
+        if (isLive) {
+          const [tableRows, setTableRows] = useState(() => {
+            // Initialize from formField value or create one empty row
+            const currentValue = formField.value || [];
+            return currentValue.length > 0 ? currentValue : [{}];
+          });
+
+          const addRow = () => {
+            const newRows = [...tableRows, {}];
+            setTableRows(newRows);
+            formField.onChange(newRows);
+          };
+
+          const removeRow = (index: number) => {
+            if (tableRows.length > 1) {
+              const newRows = tableRows.filter((_: any, i: number) => i !== index);
+              setTableRows(newRows);
+              formField.onChange(newRows);
+            }
+          };
+
+          const updateCell = (rowIndex: number, columnName: string, value: string) => {
+            const newRows = [...tableRows];
+            newRows[rowIndex] = { ...newRows[rowIndex], [columnName]: value };
+            setTableRows(newRows);
+            formField.onChange(newRows);
+          };
+
+          return (
+            <div className="space-y-4">
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {field.columns?.map((column, index) => (
+                        <TableHead key={index} className="font-semibold">
+                          {column}
+                        </TableHead>
+                      ))}
+                      <TableHead className="w-[50px]">Akcje</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tableRows.map((row: any, rowIndex: number) => (
+                      <TableRow key={rowIndex}>
+                        {field.columns?.map((column, colIndex) => (
+                          <TableCell key={colIndex}>
+                            <Input
+                              value={row[column] || ''}
+                              onChange={(e) => updateCell(rowIndex, column, e.target.value)}
+                              placeholder={`Wpisz ${column.toLowerCase()}`}
+                              className="h-8"
+                              data-testid={`table-input-${field.id}-${rowIndex}-${colIndex}`}
+                            />
+                          </TableCell>
+                        ))}
+                        <TableCell>
+                          {tableRows.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeRow(rowIndex)}
+                              className="h-8 w-8 p-0"
+                              data-testid={`button-remove-row-${field.id}-${rowIndex}`}
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addRow}
+                className="w-full"
+                data-testid={`button-add-row-${field.id}`}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Dodaj wiersz
+              </Button>
+            </div>
+          );
+        }
+        
+        // Preview mode for form builder
+        return (
+          <div className="border rounded-lg p-4">
+            <div className="text-sm text-muted-foreground mb-3">
+              Kolumny: {field.columns?.join(', ') || 'Brak kolumn'}
+            </div>
+            <div className="border rounded border-dashed p-6 text-center text-sm text-muted-foreground">
+              Interaktywna tabela z {field.columns?.length || 0} kolumnami
+              <br />
+              Użytkownicy będą mogli dodawać wiersze podczas wypełniania
             </div>
           </div>
         );

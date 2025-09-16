@@ -22,7 +22,7 @@ export const formResponses = pgTable("form_responses", {
   submittedAt: timestamp("submitted_at").notNull().default(sql`now()`),
 });
 
-export type FormFieldType = 'text' | 'textarea' | 'email' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'file';
+export type FormFieldType = 'text' | 'textarea' | 'email' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'file' | 'table';
 
 export type FormField = {
   id: string;
@@ -35,6 +35,7 @@ export type FormField = {
   acceptedFileTypes?: string[]; // for file uploads (e.g., ['.pdf', '.doc', '.jpg'])
   maxFileSize?: number; // in MB
   multiple?: boolean; // allow multiple file uploads
+  columns?: string[]; // for table - column names
 };
 
 export const insertFormTemplateSchema = createInsertSchema(formTemplates).omit({
