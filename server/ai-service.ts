@@ -7,7 +7,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 export interface AIGeneratedQuestion {
   id: string;
   question: string;
-  type: 'text' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'number' | 'date' | 'email';
+  type:
+    | "text"
+    | "textarea"
+    | "select"
+    | "radio"
+    | "checkbox"
+    | "number"
+    | "date"
+    | "email";
   required: boolean;
   options?: string[];
   helpText?: string;
@@ -22,7 +30,10 @@ export class AIService {
   /**
    * Converts form response data to readable text format for AI analysis
    */
-  private formatFormDataForAI(template: FormTemplate, response: FormResponse): string {
+  private formatFormDataForAI(
+    template: FormTemplate,
+    response: FormResponse,
+  ): string {
     let formattedData = `Tytuł formularza: ${template.title}\n`;
     if (template.description) {
       formattedData += `Opis formularza: ${template.description}\n`;
@@ -32,19 +43,23 @@ export class AIService {
     // Process each field and its corresponding response
     template.fields.forEach((field: FormField) => {
       const fieldResponse = response.responses[field.id];
-      
-      if (fieldResponse !== undefined && fieldResponse !== null && fieldResponse !== '') {
+
+      if (
+        fieldResponse !== undefined &&
+        fieldResponse !== null &&
+        fieldResponse !== ""
+      ) {
         formattedData += `\n${field.label}: `;
-        
+
         // Format response based on field type
         if (Array.isArray(fieldResponse)) {
-          formattedData += fieldResponse.join(', ');
-        } else if (typeof fieldResponse === 'object') {
+          formattedData += fieldResponse.join(", ");
+        } else if (typeof fieldResponse === "object") {
           formattedData += JSON.stringify(fieldResponse);
         } else {
           formattedData += String(fieldResponse);
         }
-        
+
         if (field.helpText) {
           formattedData += ` (Pomoc: ${field.helpText})`;
         }
@@ -60,18 +75,29 @@ export class AIService {
    * Generates additional clarifying questions using AI based on form response
    */
   async generateFollowUpQuestions(
-    template: FormTemplate, 
-    response: FormResponse
+    template: FormTemplate,
+    response: FormResponse,
   ): Promise<AIAnalysisResult> {
     const formattedData = this.formatFormDataForAI(template, response);
-    
-    const prompt = `You are a business analyst. You are gathering data for a development team so they can implement a business process automation.
 
-I received the description below. What additional questions should be asked to fully clarify the implementation? Are the provided answers thorough, or do you think we should ask about something else?
+    const prompt = `You are a business analyst. I received the process description below, but I need to ask some follow-up questions to gather more specific details for the development team. Please generate a list of precise, technical questions based on the provided answers. Your goal is to identify and clarify any ambiguities, logical gaps, or missing details.
+
+When crafting the questions, please consider the following:
+* **Don't ask about information already explicitly provided.**
+* **Focus on the "why" and "how."** For example, if someone mentioned a problem, ask about its root cause and specific impact. If they mentioned a system, ask about its API, data structure, or version.
+* **Challenge assumptions.** Look for areas where the process seems simplistic or where details are glossed over.
+* **Address potential edge cases and exceptions.** What happens when things don't go as planned?
+* **Focus on the future automated process (to-be).** What specific changes will the new system need to support?
+* **Limit to 3-7 most important questions**
+* **Make questions clear and specific**
+* **Ask specific, actionable questions that will help developers understand implementation requirements**
+
+**Here is the filled-out form:**
 
 ### FORMULARZ DATA START ###
 ${formattedData}
 ### FORMULARZ DATA END ###
+**Based on this, what are the most critical follow-up questions we need to ask?**
 
 Please respond with a JSON object in the following format:
 {
@@ -88,21 +114,14 @@ Please respond with a JSON object in the following format:
   ]
 }
 
-Guidelines for questions:
-- Ask specific, actionable questions that will help developers understand implementation requirements
-- Focus on technical details, edge cases, integration points, and business rules
-- Use appropriate field types (text for short answers, textarea for longer descriptions, select/radio/checkbox for predefined options)
-- Limit to 3-7 most important questions
-- Make questions clear and specific
-- Include help text when the question might need clarification
 
 Respond only with valid JSON.`;
 
     try {
       // Check if API key is available, if not use fallback
       if (!process.env.OPENAI_API_KEY) {
-        console.warn('OPENAI_API_KEY not configured, using fallback questions');
-        throw new Error('OPENAI_API_KEY not configured');
+        console.warn("OPENAI_API_KEY not configured, using fallback questions");
+        throw new Error("OPENAI_API_KEY not configured");
       }
 
       const completion = await openai.chat.completions.create({
@@ -110,25 +129,37 @@ Respond only with valid JSON.`;
         messages: [
           {
             role: "user",
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         response_format: { type: "json_object" },
-        max_completion_tokens: 1500
+        max_completion_tokens: 1500,
       });
 
-      console.log('[DEBUG] OpenAI response:', completion.choices[0].message.content);
-      const result = JSON.parse(completion.choices[0].message.content || '{}');
-      console.log('[DEBUG] Parsed AI result:', JSON.stringify(result, null, 2));
-      
+      console.log(
+        "[DEBUG] OpenAI response:",
+        completion.choices[0].message.content,
+      );
+      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      console.log("[DEBUG] Parsed AI result:", JSON.stringify(result, null, 2));
+
       // Validate and sanitize the result
       if (!result.questions || !Array.isArray(result.questions)) {
-        console.warn('[DEBUG] Invalid AI response format:', result);
-        throw new Error('Invalid AI response format: missing questions array');
+        console.warn("[DEBUG] Invalid AI response format:", result);
+        throw new Error("Invalid AI response format: missing questions array");
       }
 
       // Ensure each question has required fields and valid types
-      const validTypes = ['text', 'textarea', 'select', 'radio', 'checkbox', 'number', 'date', 'email'];
+      const validTypes = [
+        "text",
+        "textarea",
+        "select",
+        "radio",
+        "checkbox",
+        "number",
+        "date",
+        "email",
+      ];
       const sanitizedQuestions: AIGeneratedQuestion[] = result.questions
         .filter((q: any) => q.question && q.type && validTypes.includes(q.type))
         .map((q: any, index: number) => ({
@@ -137,43 +168,46 @@ Respond only with valid JSON.`;
           type: q.type,
           required: Boolean(q.required),
           options: Array.isArray(q.options) ? q.options.map(String) : undefined,
-          helpText: q.helpText ? String(q.helpText) : undefined
+          helpText: q.helpText ? String(q.helpText) : undefined,
         }));
 
       return {
-        analysis: result.analysis || 'AI analysis completed',
-        questions: sanitizedQuestions
+        analysis: result.analysis || "AI analysis completed",
+        questions: sanitizedQuestions,
       };
-
     } catch (error) {
-      console.error('AI Service Error:', error);
-      
+      console.error("AI Service Error:", error);
+
       // Always return fallback questions if AI fails for any reason
       return {
-        analysis: 'AI analysis failed, providing default follow-up questions',
+        analysis: "AI analysis failed, providing default follow-up questions",
         questions: [
           {
-            id: 'fallback_1',
-            question: 'Are there any specific technical requirements or constraints we should consider?',
-            type: 'textarea',
+            id: "fallback_1",
+            question:
+              "Are there any specific technical requirements or constraints we should consider?",
+            type: "textarea",
             required: false,
-            helpText: 'Please describe any technical limitations, integrations, or special requirements'
+            helpText:
+              "Please describe any technical limitations, integrations, or special requirements",
           },
           {
-            id: 'fallback_2',
-            question: 'What is the expected volume of data or transactions?',
-            type: 'text',
+            id: "fallback_2",
+            question: "What is the expected volume of data or transactions?",
+            type: "text",
             required: false,
-            helpText: 'Estimate daily/monthly usage to help with capacity planning'
+            helpText:
+              "Estimate daily/monthly usage to help with capacity planning",
           },
           {
-            id: 'fallback_3',
-            question: 'Are there any compliance or security requirements?',
-            type: 'textarea',
+            id: "fallback_3",
+            question: "Are there any compliance or security requirements?",
+            type: "textarea",
             required: false,
-            helpText: 'GDPR, industry regulations, data protection requirements, etc.'
-          }
-        ]
+            helpText:
+              "GDPR, industry regulations, data protection requirements, etc.",
+          },
+        ],
       };
     }
   }
@@ -181,7 +215,9 @@ Respond only with valid JSON.`;
   /**
    * Converts AI-generated questions to FormField format for the form builder
    */
-  convertAIQuestionsToFormFields(aiQuestions: AIGeneratedQuestion[]): FormField[] {
+  convertAIQuestionsToFormFields(
+    aiQuestions: AIGeneratedQuestion[],
+  ): FormField[] {
     return aiQuestions.map((aiQuestion) => ({
       id: aiQuestion.id,
       type: aiQuestion.type,
@@ -189,12 +225,16 @@ Respond only with valid JSON.`;
       required: aiQuestion.required,
       options: aiQuestion.options || [],
       helpText: aiQuestion.helpText,
-      placeholder: this.generatePlaceholder(aiQuestion.type, aiQuestion.question),
+      placeholder: this.generatePlaceholder(
+        aiQuestion.type,
+        aiQuestion.question,
+      ),
       validation: {
-        min: aiQuestion.type === 'number' ? 0 : undefined,
-        max: aiQuestion.type === 'number' ? 999999 : undefined,
-        pattern: aiQuestion.type === 'email' ? '^[^@]+@[^@]+\\.[^@]+$' : undefined
-      }
+        min: aiQuestion.type === "number" ? 0 : undefined,
+        max: aiQuestion.type === "number" ? 999999 : undefined,
+        pattern:
+          aiQuestion.type === "email" ? "^[^@]+@[^@]+\\.[^@]+$" : undefined,
+      },
     }));
   }
 
@@ -203,25 +243,31 @@ Respond only with valid JSON.`;
    */
   private generatePlaceholder(type: string, question: string): string {
     const lowercaseQuestion = question.toLowerCase();
-    
+
     switch (type) {
-      case 'email':
-        return 'przykład@email.com';
-      case 'number':
-        if (lowercaseQuestion.includes('wiek') || lowercaseQuestion.includes('age')) {
-          return 'np. 25';
+      case "email":
+        return "przykład@email.com";
+      case "number":
+        if (
+          lowercaseQuestion.includes("wiek") ||
+          lowercaseQuestion.includes("age")
+        ) {
+          return "np. 25";
         }
-        if (lowercaseQuestion.includes('rok') || lowercaseQuestion.includes('year')) {
-          return 'np. 2024';
+        if (
+          lowercaseQuestion.includes("rok") ||
+          lowercaseQuestion.includes("year")
+        ) {
+          return "np. 2024";
         }
-        return 'Wprowadź liczbę';
-      case 'date':
-        return 'Wybierz datę';
-      case 'textarea':
-        return 'Opisz szczegółowo...';
-      case 'text':
+        return "Wprowadź liczbę";
+      case "date":
+        return "Wybierz datę";
+      case "textarea":
+        return "Opisz szczegółowo...";
+      case "text":
       default:
-        return 'Wprowadź odpowiedź...';
+        return "Wprowadź odpowiedź...";
     }
   }
 }
