@@ -106,7 +106,7 @@ Respond only with valid JSON.`;
       }
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        model: "gpt-4o", // Use gpt-4o which is currently available
         messages: [
           {
             role: "user",
@@ -117,10 +117,13 @@ Respond only with valid JSON.`;
         max_completion_tokens: 1500
       });
 
+      console.log('[DEBUG] OpenAI response:', completion.choices[0].message.content);
       const result = JSON.parse(completion.choices[0].message.content || '{}');
+      console.log('[DEBUG] Parsed AI result:', JSON.stringify(result, null, 2));
       
       // Validate and sanitize the result
       if (!result.questions || !Array.isArray(result.questions)) {
+        console.warn('[DEBUG] Invalid AI response format:', result);
         throw new Error('Invalid AI response format: missing questions array');
       }
 
