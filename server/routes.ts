@@ -10,6 +10,8 @@ import { MarkdownFormParser } from "@shared/markdownParser";
 import { FormBackupUtils } from "./backup-utils";
 // Import AI service for generating follow-up questions
 import { aiService } from "./ai-service";
+// Import Event Bus for Server-Sent Events
+import { eventBus } from "./event-bus";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -231,6 +233,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Server-Sent Events endpoint for AI notifications
+  app.get("/api/events/form-responses/:shareableResponseLink", async (req, res) => {
+    const { shareableResponseLink } = req.params;
+    
+    console.log(`[SSE] Client connecting for response: ${shareableResponseLink}`);
+    
+    try {
+      // Validate that the response exists
+      const response = await dbStorage.getFormResponseByShareableLink(shareableResponseLink);
+      if (!response) {
+        return res.status(404).json({ message: "Response not found" });
+      }
+
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
+      
+      // Don't timeout the connection
+      res.setTimeout(0);
+      
+      // Subscribe to the event bus
+      const connectionId = eventBus.subscribe(shareableResponseLink, res);
+      
+      console.log(`[SSE] Client ${connectionId} subscribed to ${shareableResponseLink}`);
+      
+      // Send initial connection event
+      eventBus.publish(shareableResponseLink, {
+        event: 'connected',
+        data: { 
+          connectionId, 
+          timestamp: new Date().toISOString(),
+          message: 'Connected to AI notifications'
+        }
+      });
+      
+      // Send current AI status immediately if AI generation has finished
+      if (response.aiGeneratedFields && response.aiGeneratedFields.length > 0) {
+        console.log(`[SSE] AI already completed for ${shareableResponseLink}, sending ai-ready event`);
+        eventBus.publish(shareableResponseLink, {
+          event: 'ai-ready',
+          data: {
+            fields: response.aiGeneratedFields,
+            analysisResult: null,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } else if (response.isComplete) {
+        // Response is complete but no AI fields yet - AI might be in progress
+        console.log(`[SSE] Response ${shareableResponseLink} is complete but no AI fields yet, sending ai-pending event`);
+        eventBus.publish(shareableResponseLink, {
+          event: 'ai-status',
+          data: {
+            status: 'pending',
+            message: 'AI is generating follow-up questions...',
+            timestamp: new Date().toISOString()
+          }
+        });
+      } else {
+        // Response is not complete yet
+        console.log(`[SSE] Response ${shareableResponseLink} is not complete yet`);
+        eventBus.publish(shareableResponseLink, {
+          event: 'ai-status',
+          data: {
+            status: 'waiting',
+            message: 'Waiting for form submission...',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+      
+    } catch (error) {
+      console.error(`[SSE] Error setting up connection for ${shareableResponseLink}:`, error);
+      res.status(500).json({ message: "Failed to setup event stream" });
+    }
+  });
+
   // Form Templates Routes (Protected)
   app.get("/api/form-templates", async (req, res) => {
     try {
@@ -364,6 +445,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[DEBUG] Response created - ID: ${response.id}, isComplete: ${response.isComplete}`);
       if (response.isComplete) {
         console.log(`[DEBUG] Starting AI generation for complete response: ${response.id}`);
+        
+        // Send AI generation started event immediately
+        eventBus.publish(response.shareableResponseLink, {
+          event: 'ai-status',
+          data: {
+            status: 'pending',
+            message: 'AI is generating follow-up questions...',
+            timestamp: new Date().toISOString()
+          }
+        });
+        
         setImmediate(async () => {
           try {
             const formTemplate = await dbStorage.getFormTemplate(response.formTemplateId);
@@ -379,7 +471,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   if (storage.db) {
                     // PostgreSQL update
                     await storage.db.update(formResponses)
-                      .set({ aiGeneratedFields: aiFormFields })
+                      .set({ 
+                        aiGeneratedFields: aiFormFields
+                      })
                       .where(eq(formResponses.id, response.id));
                   } else {
                     // In-memory storage update
@@ -390,9 +484,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                   
                   console.log(`Generated ${aiFormFields.length} AI follow-up questions for response ${response.id}`);
+                  
+                  // Send AI completion event with generated fields
+                  eventBus.publish(response.shareableResponseLink, {
+                    event: 'ai-ready',
+                    data: {
+                      fields: aiFormFields,
+                      analysisResult: aiResult.analysis,
+                      timestamp: new Date().toISOString(),
+                      message: `Successfully generated ${aiFormFields.length} follow-up questions`
+                    }
+                  });
+                } else {
+                  // AI ran but generated no questions
+                  console.log(`AI generated no follow-up questions for response ${response.id}`);
+                  eventBus.publish(response.shareableResponseLink, {
+                    event: 'ai-complete',
+                    data: {
+                      status: 'no_questions',
+                      message: 'AI analysis completed but no additional questions were generated',
+                      timestamp: new Date().toISOString()
+                    }
+                  });
                 }
               } catch (aiError) {
                 console.error('AI question generation failed:', aiError);
+                
+                // Send AI error event
+                eventBus.publish(response.shareableResponseLink, {
+                  event: 'ai-error',
+                  data: {
+                    status: 'error',
+                    message: 'Failed to generate follow-up questions',
+                    error: aiError instanceof Error ? aiError.message : 'Unknown AI generation error',
+                    timestamp: new Date().toISOString()
+                  }
+                });
               }
               
               // Create backup files
