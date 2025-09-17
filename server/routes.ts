@@ -361,7 +361,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await dbStorage.createFormResponse(validatedData);
       
       // If this is a complete response, generate AI follow-up questions
+      console.log(`[DEBUG] Response created - ID: ${response.id}, isComplete: ${response.isComplete}`);
       if (response.isComplete) {
+        console.log(`[DEBUG] Starting AI generation for complete response: ${response.id}`);
         setImmediate(async () => {
           try {
             const formTemplate = await dbStorage.getFormTemplate(response.formTemplateId);
@@ -480,14 +482,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(updatedResponse);
       }
 
-      // Create backup files if response is now complete
+      // Generate AI follow-up questions and create backup files if response is now complete
       if (validatedData.isComplete) {
+        console.log(`[DEBUG] Draft update - now complete. Starting AI generation for: ${req.params.shareableResponseLink}`);
         setImmediate(async () => {
           try {
             const formTemplate = await dbStorage.getFormTemplate(existingResponse.formTemplateId);
             if (formTemplate) {
               const finalResponse = await dbStorage.getFormResponseByShareableLink(req.params.shareableResponseLink);
               if (finalResponse) {
+                
+                // Generate AI follow-up questions
+                try {
+                  console.log(`[DEBUG] Generating AI questions for response: ${finalResponse.id}`);
+                  const aiResult = await aiService.generateFollowUpQuestions(formTemplate, finalResponse);
+                  const aiFormFields = aiService.convertAIQuestionsToFormFields(aiResult.questions);
+                  
+                  // Update the response with AI-generated fields
+                  if (aiFormFields.length > 0) {
+                    const storage = dbStorage as any;
+                    if (storage.db) {
+                      // PostgreSQL update
+                      await storage.db.update(formResponses)
+                        .set({ aiGeneratedFields: aiFormFields })
+                        .where(eq(formResponses.shareableResponseLink, req.params.shareableResponseLink));
+                    } else {
+                      // In-memory storage update
+                      if (finalResponse) {
+                        finalResponse.aiGeneratedFields = aiFormFields;
+                      }
+                    }
+                    
+                    console.log(`Generated ${aiFormFields.length} AI follow-up questions for response ${finalResponse.id}`);
+                  } else {
+                    console.log(`No AI questions generated for response ${finalResponse.id}`);
+                  }
+                } catch (aiError) {
+                  console.error('AI question generation failed:', aiError);
+                }
+                
+                // Create backup files
                 const backupResult = await FormBackupUtils.createBackups(formTemplate, finalResponse);
                 if (!backupResult.success) {
                   console.warn('Async backup creation failed:', backupResult.errors);

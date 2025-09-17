@@ -274,24 +274,11 @@ export default function PublicForm() {
   const [checkingForAI, setCheckingForAI] = useState(false);
   const { toast } = useToast();
   
-  // Debug wouter location
-  console.log('WOUTER DEBUG - location:', location);
-  console.log('WOUTER DEBUG - window.location.href:', window.location.href);
-  console.log('WOUTER DEBUG - window.location.search:', window.location.search);
-
   // Detect if this is a draft scenario based on URL parameters
   // Use window.location.search instead of wouter location for query params
   const urlParams = new URLSearchParams(window.location.search);
   const isDraftMode = urlParams.has('draft');
   const draftResponseLink = urlParams.get('draftId');
-  
-  // Debug logging
-  console.log('DEBUG - Location:', location);
-  console.log('DEBUG - URL params:', urlParams.toString());
-  console.log('DEBUG - draftResponseLink:', draftResponseLink);
-  console.log('DEBUG - draftResponseLink type:', typeof draftResponseLink);
-  console.log('DEBUG - draftResponseLink truthy:', !!draftResponseLink);
-  console.log('DEBUG - isDraftMode:', isDraftMode);
 
   // Load form template
   const { data: formTemplate, isLoading, error } = useQuery<FormTemplate>({
