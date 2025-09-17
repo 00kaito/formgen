@@ -286,7 +286,7 @@ export default function PublicForm() {
 
   // Load existing draft data if available
   const { data: existingDraft, isLoading: draftLoading } = useQuery<FormResponse>({
-    queryKey: ["/api/draft-responses", draftResponseLink],
+    queryKey: ["/api/form-responses/by-link", draftResponseLink],
     enabled: !!draftResponseLink,
   });
 
