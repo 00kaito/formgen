@@ -464,21 +464,7 @@ export class PostgreSQLStorage implements IStorage {
 
   async getFormResponseByShareableLink(shareableResponseLink: string): Promise<FormResponse | undefined> {
     const result = await this.db.select().from(formResponses).where(eq(formResponses.shareableResponseLink, shareableResponseLink)).limit(1);
-    const response = result[0];
-    
-    if (response && response.aiGeneratedFields) {
-      // Parse AI generated fields from JSON string to FormField array
-      try {
-        if (typeof response.aiGeneratedFields === 'string') {
-          response.aiGeneratedFields = JSON.parse(response.aiGeneratedFields);
-        }
-      } catch (error) {
-        console.error('Failed to parse aiGeneratedFields:', error);
-        response.aiGeneratedFields = null;
-      }
-    }
-    
-    return response;
+    return result[0];
   }
 
   async getAllFormResponses(): Promise<FormResponse[]> {
