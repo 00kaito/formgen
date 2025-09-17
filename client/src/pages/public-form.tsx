@@ -278,6 +278,14 @@ export default function PublicForm() {
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const isDraftMode = urlParams.has('draft');
   const draftResponseLink = urlParams.get('draftId');
+  
+  // Debug logging
+  console.log('DEBUG - Location:', location);
+  console.log('DEBUG - URL params:', urlParams.toString());
+  console.log('DEBUG - draftResponseLink:', draftResponseLink);
+  console.log('DEBUG - draftResponseLink type:', typeof draftResponseLink);
+  console.log('DEBUG - draftResponseLink truthy:', !!draftResponseLink);
+  console.log('DEBUG - isDraftMode:', isDraftMode);
 
   // Load form template
   const { data: formTemplate, isLoading, error } = useQuery<FormTemplate>({
@@ -285,10 +293,16 @@ export default function PublicForm() {
   });
 
   // Load existing draft data if available
-  const { data: existingDraft, isLoading: draftLoading } = useQuery<FormResponse>({
+  const { data: existingDraft, isLoading: draftLoading, error: draftError } = useQuery<FormResponse>({
     queryKey: ["/api/form-responses/by-link", draftResponseLink],
     enabled: !!draftResponseLink,
   });
+  
+  // Debug draft query
+  console.log('DEBUG - Draft query enabled:', !!draftResponseLink);
+  console.log('DEBUG - Draft loading:', draftLoading);
+  console.log('DEBUG - Draft data:', existingDraft);
+  console.log('DEBUG - Draft error:', draftError);
 
   if (isLoading || draftLoading) {
     return (
