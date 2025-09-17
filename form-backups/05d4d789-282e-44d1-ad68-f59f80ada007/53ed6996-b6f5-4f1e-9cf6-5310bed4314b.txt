@@ -1,0 +1,27 @@
+============================================================
+FORMULARZ: test2
+============================================================
+
+Data złożenia: 17.09.2025, 01:53:24
+ID odpowiedzi: 53ed6996-b6f5-4f1e-9cf6-5310bed4314b
+Link do odpowiedzi: 48e2dd85-25d1-4fc4-b835-72f8283f935e
+Status: Kompletna
+
+OPIS FORMULARZA:
+(brak opisu)
+
+ODPOWIEDZI:
+----------------------------------------
+
+1. Text Field
+   Typ: text
+   Wymagane: Nie
+   Odpowiedź: asd
+
+2. Message
+   Typ: textarea
+   Wymagane: Nie
+   Odpowiedź: asd
+
+============================================================
+Backup wygenerowany: 17.09.2025, 01:53:46
