@@ -444,9 +444,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Draft not found" });
       }
 
-      // Only allow updating incomplete responses
-      if (existingResponse.isComplete) {
-        return res.status(400).json({ message: "Cannot update completed response" });
+      // Allow updating AI follow-up responses for completed forms
+      // Only block updates for completed responses that don't have AI fields to process
+      if (existingResponse.isComplete && (!existingResponse.aiGeneratedFields || existingResponse.aiGeneratedFields.length === 0)) {
+        return res.status(400).json({ message: "Cannot update completed response without AI fields" });
       }
 
       const validatedData = insertFormResponseSchema.parse({
