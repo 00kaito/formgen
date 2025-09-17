@@ -427,6 +427,12 @@ export default function PublicForm() {
       ? `${window.location.origin}/followup/${responseData.shareableResponseLink}` 
       : null;
     
+    console.log('AI Debug:', {
+      hasAIFields: !!responseData.aiGeneratedFields,
+      aiFieldsLength: responseData.aiGeneratedFields?.length,
+      followupLink
+    });
+    
     const copyToClipboard = async () => {
       try {
         await navigator.clipboard.writeText(responseLink);
