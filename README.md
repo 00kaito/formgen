@@ -1,6 +1,6 @@
 # Polish Form Builder System
 
-A comprehensive full-stack form builder application with admin authentication, drag-and-drop form creation, file uploads, analytics, and robust backup system. Features webhook integration for external notifications and responsive design.
+A comprehensive full-stack form builder application with admin authentication, drag-and-drop form creation, file uploads, analytics, and robust backup system. Features AI-powered follow-up questions, draft saving, webhook integration for external notifications, and responsive design.
 
 ## 🏗️ Architecture Overview
 
@@ -9,12 +9,15 @@ A comprehensive full-stack form builder application with admin authentication, d
 - **Backend**: Express.js with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM (fallback to in-memory storage)
 - **Authentication**: Session-based with Passport.js
+- **AI Integration**: OpenAI GPT-4o for intelligent follow-up question generation
 - **File Handling**: Multer for uploads with security validation
 - **Backup System**: Multi-format file backup (TXT, Markdown, CSV) with webhook integration
 - **UI Framework**: shadcn/ui built on Radix UI primitives with Tailwind CSS
 
 ### Key Features
-- 🎯 **Drag-and-Drop Form Builder** - Visual form creation with 11 field types
+- 🎯 **Drag-and-Drop Form Builder** - Visual form creation with 12 field types including headlines
+- 🤖 **AI-Powered Follow-ups** - OpenAI integration generates contextual questions after form submission
+- 💾 **Draft Saving** - Auto-save drafts with unique shareable links for resuming later
 - 🔐 **Admin Authentication** - Session-based auth (admin/Procesy123)
 - 📊 **Analytics Dashboard** - Form statistics and response analytics
 - 💾 **Backup System** - Automatic file backup with webhook notifications
@@ -79,6 +82,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 ```
 **Purpose**: API endpoint registration with file upload handling and security validation.
 
+#### **5. AI Service (`server/ai-service.ts`)**
+```typescript
+class AIService {
+  static async generateFollowUpQuestions(formTemplate: FormTemplate, responses: Record<string, any>): Promise<FormField[]>;
+  private static buildPrompt(formTemplate: FormTemplate, responses: Record<string, any>): string;
+  private static parseAIResponse(content: string): { analysis: string; questions: any[] };
+}
+```
+**Purpose**: OpenAI integration for intelligent follow-up question generation based on form responses.
+
 ### Frontend Core Components
 
 #### **5. Form Builder (`client/src/pages/form-builder.tsx`)**
@@ -95,7 +108,7 @@ export default function FormBuilder() {
 #### **6. Field Palette (`client/src/components/form-field-palette.tsx`)**
 ```typescript
 export default function FormFieldPalette({ onAddField }: FormFieldPaletteProps) {
-  // Renders 11 field types: text, textarea, email, number, date, select, radio, checkbox, file, table, separator
+  // Renders 12 field types: text, textarea, email, number, date, select, radio, checkbox, file, table, separator, headline
   // Creates new FormField instances with unique IDs
 }
 ```
@@ -131,7 +144,7 @@ export default function MarkdownFormConverter({ onFieldsConverted, currentFields
   // Bidirectional conversion (form ↔ markdown)
 }
 ```
-**Purpose**: Allows form import/export using human-readable Markdown format.
+**Purpose**: Allows form import/export using human-readable Markdown format with support for headlines (`# Title`) and separators (`---`).
 
 ### Data Models (`shared/schema.ts`)
 
@@ -152,7 +165,7 @@ type FormTemplate = {
 #### **Form Field Types**
 ```typescript
 type FormFieldType = 'text' | 'textarea' | 'email' | 'number' | 'date' | 
-                    'select' | 'radio' | 'checkbox' | 'file' | 'table' | 'separator';
+                    'select' | 'radio' | 'checkbox' | 'file' | 'table' | 'separator' | 'headline';
 
 type FormField = {
   id: string;
@@ -176,6 +189,7 @@ type FormResponse = {
   responses: Record<string, any>;
   isComplete: boolean;
   shareableResponseLink: string;
+  aiGeneratedFields?: FormField[];    // AI-generated follow-up questions
   submittedAt: Date;
 }
 ```
@@ -200,6 +214,9 @@ PGPORT=5432
 PGUSER=your_db_user
 PGPASSWORD=your_db_password
 PGDATABASE=formbuilder
+
+# AI Integration (OpenAI)
+OPENAI_API_KEY=your-openai-api-key-here
 
 # Optional
 PORT=5000
@@ -331,8 +348,41 @@ npm run db:push  # Push database schema changes
 - `POST /api/form-templates` - Create new form
 - `GET /api/public-forms/:shareableLink` - Get public form
 - `POST /api/form-responses` - Submit form response
+- `POST /api/form-responses/draft` - Save form as draft
+- `PUT /api/form-responses/draft/:shareableLink` - Update existing draft
+- `GET /api/form-responses/by-link/:shareableLink` - Get form response by link
 - `GET /api/dashboard/stats` - Dashboard statistics
 - `POST /api/upload` - File upload endpoint
+
+### AI Integration
+The system uses OpenAI GPT-4o to automatically generate contextual follow-up questions based on form submissions:
+- **Intelligent Analysis**: AI analyzes submitted responses to understand context
+- **Dynamic Questions**: Generates 6 relevant follow-up questions with proper field types
+- **Real-time Processing**: Questions appear within 6-8 seconds after form submission
+- **Persistent Storage**: AI-generated questions are stored in the database for later access
+
+### Draft System
+Forms can be saved as drafts and resumed later:
+- **Auto-save**: Drafts are automatically saved as users fill out forms
+- **Shareable Links**: Each draft gets a unique URL for resuming later
+- **State Management**: Complete form state is preserved including partial responses
+- **Draft Mode**: Visual indicators show when users are in draft mode
+
+### Markdown Form Syntax
+The system supports enhanced Markdown syntax for form creation:
+```markdown
+# Section Headline          # Creates a visual headline (no input)
+## Field Label              # Creates an input field
+[text] (required)          # Field type and validation
+Help text for the field    # Optional description
+
+---                        # Creates a visual separator
+
+# Another Section
+## Email Address
+[email] (required) {"placeholder": "user@example.com"}
+We'll use this to contact you
+```
 
 ### Backup System
 The application automatically creates backup files in three formats for each form submission:
