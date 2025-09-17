@@ -1,0 +1,27 @@
+============================================================
+FORMULARZ: test
+============================================================
+
+Data złożenia: 17.09.2025, 01:04:41
+ID odpowiedzi: 8bfbb4d4-bf1e-427d-92db-50e0ef131cc0
+Link do odpowiedzi: 422f0220-2772-4799-868b-ffade5570800
+Status: Kompletna
+
+OPIS FORMULARZA:
+(brak opisu)
+
+ODPOWIEDZI:
+----------------------------------------
+
+1. Opis obecnego Procesu
+   Typ: text
+   Wymagane: Nie
+   Odpowiedź: Obecnie wysylam maila z zalacznikiem, osoba pod drugiej stronie podpisuje, odsyla do mnie, a ja taki dokument przekazuje do kolejnej osoby do podpisu
+
+2. Opis jak to powinno dzialac
+   Typ: textarea
+   Wymagane: Nie
+   Odpowiedź: Chcie aby proces automatyczny odbieral ode mnie dokument i na podtawie inforacji o adresatach informowal ich o tym ze dokument czeka na podpisanie, gdy kazdy z adresatow odwiedzi link i podpisze dokument ja dostane spowrotem nowyfitakcje ze dokument zostal przez wszystkich podpisany
+
+============================================================
+Backup wygenerowany: 17.09.2025, 01:05:01
