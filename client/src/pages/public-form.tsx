@@ -615,13 +615,15 @@ export default function PublicForm() {
               if (data.isComplete) {
                 setCheckingForAI(true);
                 
-                // Function to check for AI fields with retry mechanism
-                const checkAIFields = async (attempt = 1, maxAttempts = 4) => {
+                // Function to check for AI fields with extended retry mechanism
+                const checkAIFields = async (attempt = 1, maxAttempts = 8) => {
                   try {
+                    console.log(`Checking for AI fields - attempt ${attempt}/${maxAttempts}`);
                     const updatedResponse = await apiRequest("GET", `/api/form-responses/by-link/${data.shareableResponseLink}`);
                     const updatedData = await updatedResponse.json();
                     
                     if (updatedData.aiGeneratedFields && updatedData.aiGeneratedFields.length > 0) {
+                      console.log(`AI fields found on attempt ${attempt}:`, updatedData.aiGeneratedFields.length);
                       setResponseData(updatedData);
                       setCheckingForAI(false);
                       toast({
@@ -633,14 +635,18 @@ export default function PublicForm() {
                     
                     // If no AI fields yet and we haven't exceeded max attempts, retry
                     if (attempt < maxAttempts) {
-                      setTimeout(() => checkAIFields(attempt + 1, maxAttempts), 3000);
+                      const delay = attempt <= 3 ? 3000 : 4000; // Longer delays after first 3 attempts
+                      console.log(`No AI fields yet, retrying in ${delay/1000} seconds...`);
+                      setTimeout(() => checkAIFields(attempt + 1, maxAttempts), delay);
                     } else {
+                      console.log('Max attempts reached, stopping AI field checks');
                       setCheckingForAI(false);
                     }
                   } catch (error) {
-                    console.error('Failed to check for AI fields:', error);
+                    console.error(`Failed to check for AI fields (attempt ${attempt}):`, error);
                     if (attempt < maxAttempts) {
-                      setTimeout(() => checkAIFields(attempt + 1, maxAttempts), 3000);
+                      const delay = attempt <= 3 ? 3000 : 4000;
+                      setTimeout(() => checkAIFields(attempt + 1, maxAttempts), delay);
                     } else {
                       setCheckingForAI(false);
                     }
@@ -648,6 +654,7 @@ export default function PublicForm() {
                 };
                 
                 // Start checking after 5 seconds
+                console.log('Starting AI field checks...');
                 setTimeout(() => checkAIFields(), 5000);
               }
             }
