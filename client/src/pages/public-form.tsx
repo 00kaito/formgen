@@ -108,9 +108,25 @@ function PublicFormInner({
   const { toast } = useToast();
   const formSchema = createFormSchema(template.fields);
   
+  // Create proper default values for all fields
+  const getDefaultValues = () => {
+    const defaults: Record<string, any> = {};
+    template.fields.forEach(field => {
+      defaults[field.id] = existingDraftData?.[field.id] || '';
+    });
+    return defaults;
+  };
+
   const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: existingDraftData || {},
+    defaultValues: getDefaultValues(),
+  });
+
+  // Debug draft loading
+  console.log('Draft Debug:', {
+    hasExistingDraft: !!existingDraftData,
+    draftData: existingDraftData,
+    defaultValues: getDefaultValues()
   });
 
   const submitMutation = useMutation({
@@ -617,6 +633,12 @@ export default function PublicForm() {
                   try {
                     const updatedResponse = await apiRequest("GET", `/api/form-responses/by-link/${data.shareableResponseLink}`);
                     const updatedData = await updatedResponse.json();
+                    console.log('AI Update Check:', {
+                      originalData: data,
+                      updatedData,
+                      hasAIFields: !!(updatedData.aiGeneratedFields && updatedData.aiGeneratedFields.length > 0)
+                    });
+                    
                     if (updatedData.aiGeneratedFields && updatedData.aiGeneratedFields.length > 0) {
                       setResponseData(updatedData);
                       toast({
