@@ -611,111 +611,44 @@ export default function PublicForm() {
             } else {
               setIsSubmitted(true);
               
-              // Use SSE for real-time AI notifications for completed submissions
+              // Check for AI-generated fields after a delay for completed submissions
               if (data.isComplete) {
                 setCheckingForAI(true);
                 
-                // Create EventSource connection for real-time AI notifications
-                console.log(`[SSE] Creating EventSource connection for: ${data.shareableResponseLink}`);
-                const eventSource = new EventSource(`/api/events/form-responses/${data.shareableResponseLink}`);
-                
-                // Set up event listeners
-                eventSource.addEventListener('connected', (event) => {
-                  console.log('[SSE] Connected to AI notification stream:', JSON.parse(event.data));
-                });
-                
-                eventSource.addEventListener('ai-status', (event) => {
-                  const eventData = JSON.parse(event.data);
-                  console.log('[SSE] AI Status update:', eventData);
-                  
-                  if (eventData.status === 'pending') {
-                    setCheckingForAI(true);
-                  }
-                });
-                
-                eventSource.addEventListener('ai-ready', (event) => {
-                  const eventData = JSON.parse(event.data);
-                  console.log('[SSE] AI fields ready:', eventData);
-                  
-                  // Update response data with AI fields
-                  setResponseData((prev: any) => ({
-                    ...prev,
-                    aiGeneratedFields: eventData.fields
-                  }));
-                  
-                  setCheckingForAI(false);
-                  eventSource.close();
-                  
-                  toast({
-                    title: "Additional questions generated!",
-                    description: "AI has created follow-up questions based on your answers.",
-                  });
-                });
-                
-                eventSource.addEventListener('ai-complete', (event) => {
-                  const eventData = JSON.parse(event.data);
-                  console.log('[SSE] AI completed without questions:', eventData);
-                  
-                  setCheckingForAI(false);
-                  eventSource.close();
-                  
-                  toast({
-                    title: "Analysis complete",
-                    description: "AI analysis finished but no additional questions were needed.",
-                  });
-                });
-                
-                eventSource.addEventListener('ai-error', (event) => {
-                  const eventData = JSON.parse(event.data);
-                  console.log('[SSE] AI generation error:', eventData);
-                  
-                  setCheckingForAI(false);
-                  eventSource.close();
-                  
-                  toast({
-                    title: "AI generation failed",
-                    description: "Unable to generate additional questions at this time.",
-                    variant: "destructive",
-                  });
-                });
-                
-                eventSource.addEventListener('heartbeat', (event) => {
-                  // Keep connection alive - no action needed
-                });
-                
-                eventSource.onerror = (error) => {
-                  console.error('[SSE] EventSource error:', error);
-                  setCheckingForAI(false);
-                  eventSource.close();
-                  
-                  // Fallback to single API check if SSE fails
-                  console.log('[SSE] Falling back to API check due to connection error');
-                  setTimeout(async () => {
-                    try {
-                      const updatedResponse = await apiRequest("GET", `/api/form-responses/by-link/${data.shareableResponseLink}`);
-                      const updatedData = await updatedResponse.json();
-                      
-                      if (updatedData.aiGeneratedFields && updatedData.aiGeneratedFields.length > 0) {
-                        setResponseData(updatedData);
-                        toast({
-                          title: "Additional questions generated!",
-                          description: "AI has created follow-up questions based on your answers.",
-                        });
-                      }
-                    } catch (fallbackError) {
-                      console.error('Fallback API check also failed:', fallbackError);
+                // Function to check for AI fields with retry mechanism
+                const checkAIFields = async (attempt = 1, maxAttempts = 4) => {
+                  try {
+                    const updatedResponse = await apiRequest("GET", `/api/form-responses/by-link/${data.shareableResponseLink}`);
+                    const updatedData = await updatedResponse.json();
+                    
+                    if (updatedData.aiGeneratedFields && updatedData.aiGeneratedFields.length > 0) {
+                      setResponseData(updatedData);
+                      setCheckingForAI(false);
+                      toast({
+                        title: "Additional questions generated!",
+                        description: "AI has created follow-up questions based on your answers.",
+                      });
+                      return;
                     }
-                  }, 2000);
+                    
+                    // If no AI fields yet and we haven't exceeded max attempts, retry
+                    if (attempt < maxAttempts) {
+                      setTimeout(() => checkAIFields(attempt + 1, maxAttempts), 3000);
+                    } else {
+                      setCheckingForAI(false);
+                    }
+                  } catch (error) {
+                    console.error('Failed to check for AI fields:', error);
+                    if (attempt < maxAttempts) {
+                      setTimeout(() => checkAIFields(attempt + 1, maxAttempts), 3000);
+                    } else {
+                      setCheckingForAI(false);
+                    }
+                  }
                 };
                 
-                // Auto-cleanup: close connection after 2 minutes to prevent resource leaks
-                setTimeout(() => {
-                  if (eventSource.readyState !== EventSource.CLOSED) {
-                    console.log('[SSE] Auto-closing EventSource after 2 minutes');
-                    eventSource.close();
-                    setCheckingForAI(false);
-                  }
-                }, 120000); // 2 minutes
+                // Start checking after 5 seconds
+                setTimeout(() => checkAIFields(), 5000);
               }
             }
           }} 
