@@ -273,9 +273,15 @@ export default function PublicForm() {
   const [isDraftSaved, setIsDraftSaved] = useState(false);
   const [checkingForAI, setCheckingForAI] = useState(false);
   const { toast } = useToast();
+  
+  // Debug wouter location
+  console.log('WOUTER DEBUG - location:', location);
+  console.log('WOUTER DEBUG - window.location.href:', window.location.href);
+  console.log('WOUTER DEBUG - window.location.search:', window.location.search);
 
   // Detect if this is a draft scenario based on URL parameters
-  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  // Use window.location.search instead of wouter location for query params
+  const urlParams = new URLSearchParams(window.location.search);
   const isDraftMode = urlParams.has('draft');
   const draftResponseLink = urlParams.get('draftId');
   
