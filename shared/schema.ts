@@ -31,7 +31,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-export type FormFieldType = 'text' | 'textarea' | 'email' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'file' | 'table' | 'separator';
+export type FormFieldType = 'text' | 'textarea' | 'email' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'file' | 'table' | 'separator' | 'headline';
 
 export type FormField = {
   id: string;

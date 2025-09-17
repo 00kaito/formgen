@@ -250,6 +250,17 @@ export class MarkdownFormParser {
         return;
       }
 
+      // Special handling for headline fields - export as simple # Title
+      if (field.type === 'headline') {
+        markdown += `# ${field.label}\n`;
+        // Add help text if it exists
+        if (field.helpText) {
+          markdown += `${field.helpText}\n`;
+        }
+        markdown += '\n';
+        return;
+      }
+
       // Field label as header
       markdown += `## ${field.label}\n`;
 
@@ -339,6 +350,15 @@ export class MarkdownFormParser {
           sections.push(currentSection.join('\n'));
         }
         currentSection = [line];
+      }
+      // Handle headline syntax (# Title)
+      else if (trimmedLine.startsWith('#') && !trimmedLine.startsWith('##')) {
+        if (currentSection.length > 0) {
+          sections.push(currentSection.join('\n'));
+        }
+        // Convert # Title to headline field format
+        const headlineTitle = trimmedLine.replace(/^#\s*/, '').trim();
+        currentSection = [`## ${headlineTitle}`, '[headline]'];
       }
       // Handle horizontal rule separator syntax (---)
       else if (trimmedLine === '---' || trimmedLine.match(/^-{3,}$/)) {
@@ -570,6 +590,11 @@ export class MarkdownFormParser {
         // Separators are purely visual - no additional properties needed
         // They only need label and optional helpText which are already handled
         break;
+      
+      case 'headline':
+        // Headlines are purely visual - no additional properties needed
+        // They only need label and optional helpText which are already handled
+        break;
     }
 
     // Handle any additional unknown properties (for future extensibility)
@@ -585,7 +610,7 @@ export class MarkdownFormParser {
    * Validate field type
    */
   private static isValidFieldType(type: string): type is FormFieldType {
-    const validTypes: FormFieldType[] = ['text', 'textarea', 'email', 'number', 'date', 'select', 'radio', 'checkbox', 'file', 'table', 'separator'];
+    const validTypes: FormFieldType[] = ['text', 'textarea', 'email', 'number', 'date', 'select', 'radio', 'checkbox', 'file', 'table', 'separator', 'headline'];
     return validTypes.includes(type as FormFieldType);
   }
 
@@ -636,7 +661,11 @@ Dodaj informacje o wszystkich uczestnikach`,
 
       separator: `## Sekcja
 [separator]
-Ten tekst będzie wyświetlany nad belką dzielącą`
+Ten tekst będzie wyświetlany nad belką dzielącą`,
+
+      headline: `## Tytuł Sekcji
+[headline]
+To jest nagłówek, który pomoże zorganizować formularz`
     };
   }
 

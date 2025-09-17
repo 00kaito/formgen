@@ -70,6 +70,20 @@ export default function FormFieldRenderer({
       );
     }
 
+    // Special handling for headline field - no form controls needed
+    if (field.type === 'headline') {
+      return (
+        <div className={`space-y-3 ${isPublic ? "my-6" : "my-4"}`} data-testid={`headline-${field.id}`}>
+          <h2 className={`font-bold text-foreground ${isPublic ? "text-2xl" : "text-lg"}`}>
+            {field.label}
+          </h2>
+          {field.helpText && (
+            <p className="text-sm text-muted-foreground mt-2">{field.helpText}</p>
+          )}
+        </div>
+      );
+    }
+
     if (isPublic && form) {
       return (
         <FormField
