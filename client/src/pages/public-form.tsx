@@ -611,26 +611,44 @@ export default function PublicForm() {
             } else {
               setIsSubmitted(true);
               
-              // Check for AI-generated fields after a short delay for completed submissions
+              // Check for AI-generated fields after a delay for completed submissions
               if (data.isComplete) {
                 setCheckingForAI(true);
-                setTimeout(async () => {
+                
+                // Function to check for AI fields with retry mechanism
+                const checkAIFields = async (attempt = 1, maxAttempts = 4) => {
                   try {
                     const updatedResponse = await apiRequest("GET", `/api/form-responses/by-link/${data.shareableResponseLink}`);
                     const updatedData = await updatedResponse.json();
+                    
                     if (updatedData.aiGeneratedFields && updatedData.aiGeneratedFields.length > 0) {
                       setResponseData(updatedData);
+                      setCheckingForAI(false);
                       toast({
                         title: "Additional questions generated!",
                         description: "AI has created follow-up questions based on your answers.",
                       });
+                      return;
+                    }
+                    
+                    // If no AI fields yet and we haven't exceeded max attempts, retry
+                    if (attempt < maxAttempts) {
+                      setTimeout(() => checkAIFields(attempt + 1, maxAttempts), 3000);
+                    } else {
+                      setCheckingForAI(false);
                     }
                   } catch (error) {
                     console.error('Failed to check for AI fields:', error);
-                  } finally {
-                    setCheckingForAI(false);
+                    if (attempt < maxAttempts) {
+                      setTimeout(() => checkAIFields(attempt + 1, maxAttempts), 3000);
+                    } else {
+                      setCheckingForAI(false);
+                    }
                   }
-                }, 3000); // Wait 3 seconds for AI processing
+                };
+                
+                // Start checking after 5 seconds
+                setTimeout(() => checkAIFields(), 5000);
               }
             }
           }} 
