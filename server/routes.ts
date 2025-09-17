@@ -369,7 +369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Generate AI follow-up questions
               try {
                 const aiResult = await aiService.generateFollowUpQuestions(formTemplate, response);
-                const aiFormFields = aiService.convertAIQuestionsToFormFields(aiResult.questions);
+                const aiFormFields = aiResult.questions; // questions are already FormField[]
                 
                 // Update the response with AI-generated fields
                 if (aiFormFields.length > 0) {

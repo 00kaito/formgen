@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { FormField, FormResponse, FormTemplate } from "@shared/schema";
+import type { FormField, FormFieldType, FormResponse, FormTemplate } from "@shared/schema";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -14,7 +14,7 @@ export interface AIGeneratedQuestion {
 }
 
 export interface AIAnalysisResult {
-  questions: AIGeneratedQuestion[];
+  questions: FormField[];
   analysis: string;
 }
 
@@ -126,15 +126,16 @@ Respond only with valid JSON.`;
 
       // Ensure each question has required fields and valid types
       const validTypes = ['text', 'textarea', 'select', 'radio', 'checkbox', 'number', 'date', 'email'];
-      const sanitizedQuestions: AIGeneratedQuestion[] = result.questions
+      const sanitizedQuestions: FormField[] = result.questions
         .filter((q: any) => q.question && q.type && validTypes.includes(q.type))
         .map((q: any, index: number) => ({
           id: q.id || `ai_question_${index + 1}`,
-          question: String(q.question),
-          type: q.type,
+          label: String(q.question),
+          type: q.type as FormFieldType,
           required: Boolean(q.required),
-          options: Array.isArray(q.options) ? q.options.map(String) : undefined,
-          helpText: q.helpText ? String(q.helpText) : undefined
+          options: Array.isArray(q.options) ? q.options.map(String) : [],
+          helpText: q.helpText ? String(q.helpText) : undefined,
+          placeholder: q.placeholder ? String(q.placeholder) : undefined
         }));
 
       return {
@@ -145,82 +146,42 @@ Respond only with valid JSON.`;
     } catch (error) {
       console.error('AI Service Error:', error);
       
-      // Always return fallback questions if AI fails for any reason
+      // Always return fallback questions if AI fails for any reason - matching FormField structure
       return {
         analysis: 'AI analysis failed, providing default follow-up questions',
         questions: [
           {
             id: 'fallback_1',
-            question: 'Are there any specific technical requirements or constraints we should consider?',
             type: 'textarea',
+            label: 'Are there any specific technical requirements or constraints we should consider?',
+            helpText: 'Please describe any technical limitations, integrations, or special requirements',
             required: false,
-            helpText: 'Please describe any technical limitations, integrations, or special requirements'
+            placeholder: 'Opisz szczegółowo...',
+            options: []
           },
           {
             id: 'fallback_2',
-            question: 'What is the expected volume of data or transactions?',
             type: 'text',
+            label: 'What is the expected volume of data or transactions?',
+            helpText: 'Estimate daily/monthly usage to help with capacity planning',
             required: false,
-            helpText: 'Estimate daily/monthly usage to help with capacity planning'
+            placeholder: 'Wprowadź odpowiedź...',
+            options: []
           },
           {
             id: 'fallback_3',
-            question: 'Are there any compliance or security requirements?',
             type: 'textarea',
+            label: 'Are there any compliance or security requirements?',
+            helpText: 'GDPR, industry regulations, data protection requirements, etc.',
             required: false,
-            helpText: 'GDPR, industry regulations, data protection requirements, etc.'
+            placeholder: 'Opisz szczegółowo...',
+            options: []
           }
         ]
       };
     }
   }
 
-  /**
-   * Converts AI-generated questions to FormField format for the form builder
-   */
-  convertAIQuestionsToFormFields(aiQuestions: AIGeneratedQuestion[]): FormField[] {
-    return aiQuestions.map((aiQuestion) => ({
-      id: aiQuestion.id,
-      type: aiQuestion.type,
-      label: aiQuestion.question,
-      required: aiQuestion.required,
-      options: aiQuestion.options || [],
-      helpText: aiQuestion.helpText,
-      placeholder: this.generatePlaceholder(aiQuestion.type, aiQuestion.question),
-      validation: {
-        min: aiQuestion.type === 'number' ? 0 : undefined,
-        max: aiQuestion.type === 'number' ? 999999 : undefined,
-        pattern: aiQuestion.type === 'email' ? '^[^@]+@[^@]+\\.[^@]+$' : undefined
-      }
-    }));
-  }
-
-  /**
-   * Generate appropriate placeholder text based on question type and content
-   */
-  private generatePlaceholder(type: string, question: string): string {
-    const lowercaseQuestion = question.toLowerCase();
-    
-    switch (type) {
-      case 'email':
-        return 'przykład@email.com';
-      case 'number':
-        if (lowercaseQuestion.includes('wiek') || lowercaseQuestion.includes('age')) {
-          return 'np. 25';
-        }
-        if (lowercaseQuestion.includes('rok') || lowercaseQuestion.includes('year')) {
-          return 'np. 2024';
-        }
-        return 'Wprowadź liczbę';
-      case 'date':
-        return 'Wybierz datę';
-      case 'textarea':
-        return 'Opisz szczegółowo...';
-      case 'text':
-      default:
-        return 'Wprowadź odpowiedź...';
-    }
-  }
 }
 
 // Export singleton instance

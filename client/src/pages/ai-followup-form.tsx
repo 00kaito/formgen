@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { useForm } from "react-hook-form";
@@ -93,9 +93,22 @@ export default function AIFollowUpForm() {
   const aiFields = formResponse?.aiGeneratedFields || [];
   const formSchema = createAIFormSchema(aiFields);
   
+  // Create proper default values to avoid controlled/uncontrolled input warning
+  const defaultValues = useMemo(() => {
+    const values: Record<string, any> = {};
+    aiFields.forEach(field => {
+      if (field.type === 'checkbox') {
+        values[field.id] = [];
+      } else {
+        values[field.id] = '';
+      }
+    });
+    return values;
+  }, [aiFields]);
+
   const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: {},
+    defaultValues,
   });
 
   const submitMutation = useMutation({
