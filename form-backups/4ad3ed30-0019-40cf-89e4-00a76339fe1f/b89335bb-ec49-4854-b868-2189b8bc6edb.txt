@@ -1,0 +1,22 @@
+============================================================
+FORMULARZ: test
+============================================================
+
+Data złożenia: 16.09.2025, 23:58:31
+ID odpowiedzi: b89335bb-ec49-4854-b868-2189b8bc6edb
+Link do odpowiedzi: 6c6f04cb-0e42-444f-b022-871b755736b6
+Status: Kompletna
+
+OPIS FORMULARZA:
+(brak opisu)
+
+ODPOWIEDZI:
+----------------------------------------
+
+1. Opis obecnego Procesu
+   Typ: text
+   Wymagane: Nie
+   Odpowiedź: Wysylam email z dokuimentem, osoba odiberajace pobiera go, podpisuje odsyla do mnie spowrotem
+
+============================================================
+Backup wygenerowany: 16.09.2025, 23:58:31

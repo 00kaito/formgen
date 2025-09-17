@@ -271,6 +271,7 @@ export default function PublicForm() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [responseData, setResponseData] = useState<any>(null);
   const [isDraftSaved, setIsDraftSaved] = useState(false);
+  const [checkingForAI, setCheckingForAI] = useState(false);
   const { toast } = useToast();
 
   // Detect if this is a draft scenario based on URL parameters
@@ -489,6 +490,19 @@ export default function PublicForm() {
                 </p>
               </div>
             )}
+
+            {/* AI Processing Indicator */}
+            {checkingForAI && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+                <h2 className="text-lg font-semibold text-yellow-900 mb-3 flex items-center">
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Generating Additional Questions...
+                </h2>
+                <p className="text-sm text-yellow-700">
+                  Our AI is analyzing your responses to create personalized follow-up questions. This may take a few moments.
+                </p>
+              </div>
+            )}
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
               <h2 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
@@ -589,6 +603,28 @@ export default function PublicForm() {
               setIsDraftSaved(true);
             } else {
               setIsSubmitted(true);
+              
+              // Check for AI-generated fields after a short delay for completed submissions
+              if (data.isComplete) {
+                setCheckingForAI(true);
+                setTimeout(async () => {
+                  try {
+                    const updatedResponse = await apiRequest("GET", `/api/form-responses/by-link/${data.shareableResponseLink}`);
+                    const updatedData = await updatedResponse.json();
+                    if (updatedData.aiGeneratedFields && updatedData.aiGeneratedFields.length > 0) {
+                      setResponseData(updatedData);
+                      toast({
+                        title: "Additional questions generated!",
+                        description: "AI has created follow-up questions based on your answers.",
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Failed to check for AI fields:', error);
+                  } finally {
+                    setCheckingForAI(false);
+                  }
+                }, 3000); // Wait 3 seconds for AI processing
+              }
             }
           }} 
         />
