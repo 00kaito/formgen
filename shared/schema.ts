@@ -21,6 +21,7 @@ export const formResponses = pgTable("form_responses", {
   isComplete: boolean("is_complete").notNull().default(false),
   shareableResponseLink: varchar("shareable_response_link").notNull().unique(),
   aiGeneratedFields: jsonb("ai_generated_fields").$type<FormField[]>(),
+  processFlowChart: text("process_flow_chart"), // Mermaid markdown for process flow
   submittedAt: timestamp("submitted_at").notNull().default(sql`now()`),
 });
 
