@@ -213,6 +213,97 @@ Respond only with valid JSON.`;
   }
 
   /**
+   * Generates a Mermaid process flow chart based on form response data
+   */
+  async generateProcessFlow(
+    template: FormTemplate,
+    response: FormResponse,
+  ): Promise<string> {
+    const formattedData = this.formatFormDataForAI(template, response);
+
+    const prompt = `You are a business process analyst. Based on the form submission below, create a Mermaid flowchart that represents the process workflow described by the user.
+
+The flowchart should:
+* Show the logical flow of the described process
+* Include decision points where applicable
+* Show different paths based on conditions
+* Use proper Mermaid flowchart syntax
+* Be clear and easy to understand
+* Focus on the main process steps and decision points
+
+**Form Data:**
+### FORMULARZ DATA START ###
+${formattedData}
+### FORMULARZ DATA END ###
+
+Please create a Mermaid flowchart using the 'flowchart TD' (top-down) format. Use:
+- Rectangles for process steps: [Step Name]
+- Diamonds for decisions: {Decision?}
+- Different shapes for different types of actions
+- Proper connections with labels where needed
+
+Return ONLY the Mermaid code, nothing else. Example format:
+flowchart TD
+    A[Start] --> B[Process Step]
+    B --> C{Decision?}
+    C -->|Yes| D[Action 1]
+    C -->|No| E[Action 2]
+    D --> F[End]
+    E --> F[End]
+
+Respond with only valid Mermaid flowchart code.`;
+
+    try {
+      // Check if API key is available, if not use fallback
+      if (!process.env.OPENAI_API_KEY) {
+        console.warn("OPENAI_API_KEY not configured, using fallback process flow");
+        return this.getFallbackProcessFlow(template);
+      }
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_completion_tokens: 1000,
+      });
+
+      const mermaidCode = completion.choices[0].message.content?.trim() || '';
+      
+      console.log("[DEBUG] Generated Mermaid Process Flow:", mermaidCode);
+
+      // Basic validation - check if it starts with flowchart
+      if (!mermaidCode.includes('flowchart') && !mermaidCode.includes('graph')) {
+        console.warn("[DEBUG] Invalid Mermaid format, using fallback");
+        return this.getFallbackProcessFlow(template);
+      }
+
+      return mermaidCode;
+    } catch (error) {
+      console.error("AI Process Flow Generation Error:", error);
+      return this.getFallbackProcessFlow(template);
+    }
+  }
+
+  /**
+   * Returns a fallback process flow chart when AI generation fails
+   */
+  private getFallbackProcessFlow(template: FormTemplate): string {
+    return `flowchart TD
+    A[Start: ${template.title}] --> B[User fills form]
+    B --> C{Form complete?}
+    C -->|Yes| D[Process submission]
+    C -->|No| E[Request missing info]
+    E --> B
+    D --> F[Store data]
+    F --> G[Send confirmation]
+    G --> H[End]`;
+  }
+
+  /**
    * Converts AI-generated questions to FormField format for the form builder
    */
   convertAIQuestionsToFormFields(

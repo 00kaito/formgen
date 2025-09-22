@@ -581,6 +581,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Process Flow Chart Routes
+  app.post("/api/form-responses/:id/process-flow", async (req, res) => {
+    try {
+      const response = await dbStorage.getFormResponse(req.params.id);
+      if (!response) {
+        return res.status(404).json({ message: "Form response not found" });
+      }
+
+      const formTemplate = await dbStorage.getFormTemplate(response.formTemplateId);
+      if (!formTemplate) {
+        return res.status(404).json({ message: "Form template not found" });
+      }
+
+      // Generate Mermaid process flow chart using AI
+      console.log(`[DEBUG] Generating process flow for response: ${response.id}`);
+      const processFlowChart = await aiService.generateProcessFlow(formTemplate, response);
+      
+      // Update the response with the generated process flow chart
+      const storage = dbStorage as any;
+      if (storage.db) {
+        // PostgreSQL update
+        const { eq } = await import("drizzle-orm");
+        const { formResponses } = await import("@shared/schema");
+        await storage.db.update(formResponses)
+          .set({ processFlowChart })
+          .where(eq(formResponses.id, response.id));
+      } else {
+        // In-memory storage update
+        response.processFlowChart = processFlowChart;
+      }
+
+      console.log(`[DEBUG] Process flow generated and saved for response: ${response.id}`);
+      res.json({ processFlowChart });
+    } catch (error) {
+      console.error("Process flow generation error:", error);
+      res.status(500).json({ message: "Failed to generate process flow" });
+    }
+  });
+
+  app.put("/api/form-responses/:id/process-flow", async (req, res) => {
+    try {
+      const { processFlowChart } = req.body;
+      if (!processFlowChart || typeof processFlowChart !== 'string') {
+        return res.status(400).json({ message: "Invalid process flow chart data" });
+      }
+
+      const response = await dbStorage.getFormResponse(req.params.id);
+      if (!response) {
+        return res.status(404).json({ message: "Form response not found" });
+      }
+
+      // Update the response with the edited process flow chart
+      const storage = dbStorage as any;
+      if (storage.db) {
+        // PostgreSQL update
+        const { eq } = await import("drizzle-orm");
+        const { formResponses } = await import("@shared/schema");
+        await storage.db.update(formResponses)
+          .set({ processFlowChart })
+          .where(eq(formResponses.id, response.id));
+      } else {
+        // In-memory storage update
+        response.processFlowChart = processFlowChart;
+      }
+
+      console.log(`[DEBUG] Process flow updated for response: ${response.id}`);
+      res.json({ processFlowChart });
+    } catch (error) {
+      console.error("Process flow update error:", error);
+      res.status(500).json({ message: "Failed to update process flow" });
+    }
+  });
+
   // Statistics Routes
   app.get("/api/form-templates/:id/stats", async (req, res) => {
     try {

@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Download, Share, Eye, Trash2, Search, Filter, Loader2, FileText, FileSpreadsheet, ChevronDown, ExternalLink, FileDown } from "lucide-react";
+import { ArrowLeft, Download, Share, Eye, Trash2, Search, Filter, Loader2, FileText, FileSpreadsheet, ChevronDown, ExternalLink, FileDown, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { FormResponse, FormTemplate } from "@shared/schema";
 import { useState } from "react";
 import ShareFormModal from "@/components/share-form-modal";
+import ProcessFlowModal from "@/components/process-flow-modal";
 
 export default function ResponsesView() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,8 @@ export default function ResponsesView() {
   const { toast } = useToast();
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [processFlowModalOpen, setProcessFlowModalOpen] = useState(false);
+  const [selectedResponse, setSelectedResponse] = useState<FormResponse | null>(null);
 
   const { data: formTemplate, isLoading: templateLoading } = useQuery<FormTemplate>({
     queryKey: ["/api/form-templates", id],
@@ -113,6 +116,30 @@ export default function ResponsesView() {
     }
 
     exportMutation.mutate(format);
+  };
+
+  const handleProcessFlowAnalysis = (response: FormResponse) => {
+    if (!response.isComplete) {
+      toast({
+        title: "Response not complete",
+        description: "Process flow analysis is only available for complete responses.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedResponse(response);
+    setProcessFlowModalOpen(true);
+  };
+
+  const handleProcessFlowClose = () => {
+    setProcessFlowModalOpen(false);
+    setSelectedResponse(null);
+  };
+
+  const handleFlowUpdated = (flowChart: string) => {
+    // Optionally refresh the responses to show updated data
+    queryClient.invalidateQueries({ queryKey: ["/api/form-templates", id, "responses"] });
   };
 
   const filteredResponses = responses.filter((response: FormResponse) => {
@@ -325,15 +352,27 @@ export default function ResponsesView() {
                         {new Date(response.submittedAt).toLocaleString()}
                       </span>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(response.id)}
-                      disabled={deleteMutation.isPending}
-                      data-testid={`button-delete-response-${response.id}`}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleProcessFlowAnalysis(response)}
+                        disabled={!response.isComplete}
+                        data-testid={`button-process-flow-${response.id}`}
+                      >
+                        <Bot className="w-4 h-4 mr-2 text-blue-600" />
+                        Analiza AI
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(response.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-response-${response.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -448,6 +487,15 @@ export default function ResponsesView() {
         onOpenChange={setShareModalOpen}
         template={formTemplate}
       />
+      
+      {selectedResponse && (
+        <ProcessFlowModal
+          isOpen={processFlowModalOpen}
+          onClose={handleProcessFlowClose}
+          response={selectedResponse}
+          onFlowUpdated={handleFlowUpdated}
+        />
+      )}
     </div>
   );
 }
