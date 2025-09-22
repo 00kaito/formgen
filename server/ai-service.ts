@@ -8,7 +8,12 @@ import type { FormField, FormResponse, FormTemplate } from "@shared/schema";
 
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openai: OpenAI | null = null;
+
+// Initialize OpenAI client only if API key is provided
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 export interface AIGeneratedQuestion {
   id: string;
@@ -125,7 +130,7 @@ Respond only with valid JSON.`;
 
     try {
       // Check if API key is available, if not use fallback
-      if (!process.env.OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY || !openai) {
         console.warn("OPENAI_API_KEY not configured, using fallback questions");
         throw new Error("OPENAI_API_KEY not configured");
       }
@@ -261,7 +266,7 @@ Respond with only valid Mermaid flowchart code.`;
 
     try {
       // Check if API key is available, if not use fallback
-      if (!process.env.OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY || !openai) {
         console.warn("OPENAI_API_KEY not configured, using fallback process flow");
         return this.getFallbackProcessFlow(template);
       }
