@@ -64,9 +64,25 @@ export class AIService {
 
         // Format response based on field type
         if (Array.isArray(fieldResponse)) {
+          // Handle arrays (checkboxes, multi-select)
           formattedData += fieldResponse.join(", ");
-        } else if (typeof fieldResponse === "object") {
-          formattedData += JSON.stringify(fieldResponse);
+        } else if (typeof fieldResponse === "object" && fieldResponse !== null) {
+          // Better object formatting - convert to readable text
+          try {
+            if (fieldResponse.hasOwnProperty('value')) {
+              formattedData += String(fieldResponse.value);
+            } else if (fieldResponse.hasOwnProperty('text')) {
+              formattedData += String(fieldResponse.text);
+            } else {
+              // Extract readable values from object
+              const readableValues = Object.entries(fieldResponse)
+                .map(([key, value]) => `${key}: ${String(value)}`)
+                .join('; ');
+              formattedData += readableValues || JSON.stringify(fieldResponse);
+            }
+          } catch (e) {
+            formattedData += JSON.stringify(fieldResponse);
+          }
         } else {
           formattedData += String(fieldResponse);
         }
@@ -78,6 +94,12 @@ export class AIService {
         formattedData += `\n${field.label}: [brak odpowiedzi]`;
       }
     });
+
+    // Debug: Log the formatted data to see what AI receives
+    console.log("[DEBUG] Formatted data for AI:");
+    console.log("=".repeat(50));
+    console.log(formattedData);
+    console.log("=".repeat(50));
 
     return formattedData;
   }
@@ -269,12 +291,20 @@ Use specific terminology and names from the form responses. Make the flowchart d
 
 Return ONLY valid Mermaid flowchart code, nothing else.`;
 
+    // Debug: Log the full prompt that goes to AI
+    console.log("[DEBUG] Full AI Prompt for Process Flow:");
+    console.log("=".repeat(70));
+    console.log(prompt);
+    console.log("=".repeat(70));
+
     try {
       // Check if API key is available, if not use fallback
       if (!process.env.OPENAI_API_KEY || !openai) {
         console.warn("OPENAI_API_KEY not configured, using fallback process flow");
         return this.getFallbackProcessFlow(template);
       }
+
+      console.log("[DEBUG] Sending request to OpenAI GPT-4o...");
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -289,14 +319,18 @@ Return ONLY valid Mermaid flowchart code, nothing else.`;
 
       const mermaidCode = completion.choices[0].message.content?.trim() || '';
       
-      console.log("[DEBUG] Generated Mermaid Process Flow:", mermaidCode);
+      console.log("[DEBUG] Raw AI Response:");
+      console.log(mermaidCode);
+      console.log("[DEBUG] Generated Mermaid Process Flow Length:", mermaidCode.length);
 
       // Basic validation - check if it starts with flowchart
       if (!mermaidCode.includes('flowchart') && !mermaidCode.includes('graph')) {
         console.warn("[DEBUG] Invalid Mermaid format, using fallback");
+        console.log("[DEBUG] AI Response doesn't contain 'flowchart' or 'graph'");
         return this.getFallbackProcessFlow(template);
       }
 
+      console.log("[DEBUG] ✅ Valid Mermaid format detected");
       return mermaidCode;
     } catch (error) {
       console.error("AI Process Flow Generation Error:", error);
