@@ -317,11 +317,31 @@ Return ONLY valid Mermaid flowchart code, nothing else.`;
         max_completion_tokens: 1000,
       });
 
-      const mermaidCode = completion.choices[0].message.content?.trim() || '';
+      const rawMermaidCode = completion.choices[0].message.content?.trim() || '';
       
       console.log("[DEBUG] Raw AI Response:");
+      console.log(rawMermaidCode);
+      console.log("[DEBUG] Generated Mermaid Process Flow Length:", rawMermaidCode.length);
+
+      // Clean up the Mermaid code
+      let mermaidCode = rawMermaidCode;
+      
+      // Remove markdown code blocks if present
+      mermaidCode = mermaidCode.replace(/```mermaid\n?/g, '');
+      mermaidCode = mermaidCode.replace(/```\n?/g, '');
+      
+      // Fix HTML entities in arrows
+      mermaidCode = mermaidCode.replace(/--&gt;/g, '-->');
+      mermaidCode = mermaidCode.replace(/&gt;/g, '>');
+      mermaidCode = mermaidCode.replace(/&lt;/g, '<');
+      mermaidCode = mermaidCode.replace(/&quot;/g, '"');
+      mermaidCode = mermaidCode.replace(/&#39;/g, "'");
+      
+      // Remove extra whitespace and fix line endings
+      mermaidCode = mermaidCode.trim();
+      
+      console.log("[DEBUG] Cleaned Mermaid Code:");
       console.log(mermaidCode);
-      console.log("[DEBUG] Generated Mermaid Process Flow Length:", mermaidCode.length);
 
       // Basic validation - check if it starts with flowchart
       if (!mermaidCode.includes('flowchart') && !mermaidCode.includes('graph')) {
@@ -330,7 +350,7 @@ Return ONLY valid Mermaid flowchart code, nothing else.`;
         return this.getFallbackProcessFlow(template);
       }
 
-      console.log("[DEBUG] ✅ Valid Mermaid format detected");
+      console.log("[DEBUG] ✅ Valid Mermaid format detected and cleaned");
       return mermaidCode;
     } catch (error) {
       console.error("AI Process Flow Generation Error:", error);
