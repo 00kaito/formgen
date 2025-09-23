@@ -1,0 +1,52 @@
+ID_Odpowiedzi,Data_Zlozenia,Status,Link_Do_Odpowiedzi,Tytul_Formularza,Pole_field_1758588535117_u6sxttqes_Opis_procesu
+4931e224-63ee-428c-9804-7e53cee43e96,"23.09.2025, 00:49:27",Kompletna,5157e25f-4373-49ce-bdd3-594132b727a4,Proces napraw w budynku,"1. Zgłoszenie zlecenia
+Kto: Najemca (Tenant).
+
+Co robi: Najemca loguje się do systemu Building Engines i zgłasza usterkę. Musi wybrać odpowiednią kategorię zlecenia, podać szczegółowy opis problemu oraz dokładną lokalizację.
+
+Status zlecenia: Nowe zgłoszenie lub Zgłoszone.
+
+2. Weryfikacja i przekazanie
+Kto: System.
+
+Co robi: System na podstawie wybranej kategorii kieruje zgłoszenie do odpowiedniego członka personelu budynku (Building Staff).
+
+Status zlecenia: Przypisane do personelu.
+
+3. Realizacja zlecenia
+Kto: Personel budynku (Building Staff).
+
+Co robi: Personel otrzymuje i analizuje zgłoszenie. Jeśli usterka wymaga części zamiennych lub materiałów, należy ustalić ich dostępność i przewidywany czas dostawy (ETA). Jeśli wymagane jest zaangażowanie zewnętrznego dostawcy, przechodzimy do kolejnego kroku.
+
+Status zlecenia: W trakcie realizacji.
+
+4. (Opcjonalny) Zaangażowanie dostawcy zewnętrznego
+Kto: Personel budynku, Dostawca zewnętrzny, Najemca.
+
+Co robi:
+
+Personel budynku kontaktuje się z zewnętrznym dostawcą.
+
+Dostawca przygotowuje propozycję (wycenę).
+
+Propozycja jest przedstawiana najemcy.
+
+Najemca musi zatwierdzić wycenę, zanim prace zostaną rozpoczęte.
+
+Status zlecenia: Oczekuje na akceptację najemcy.
+
+5. Zamknięcie zlecenia
+Kto: Administrator nieruchomości (Property Administrator).
+
+Co robi: Po wykonaniu wszystkich prac i usunięciu usterki, administrator zamyka zlecenie w systemie. W tym momencie następuje obciążenie konta najemcy odpowiednimi kosztami (np. za części lub usługi dostawcy).
+
+Status zlecenia: Zakończone lub Zrealizowane.
+
+Kluczowe uwagi i wymogi
+Komunikacja: Konieczne jest ciągłe powiadamianie najemcy o postępach w realizacji zlecenia (np. o szacowanym czasie dostawy materiałów czy statusie prac).
+
+Walidacja danych: System powinien wymuszać podawanie szczegółowych informacji w zgłoszeniu (kategoria, dokładny opis, lokalizacja), aby uniknąć błędów i konieczności ciągłego dopytywania.
+
+Błędy: Najczęstsze problemy to wybór niewłaściwej kategorii, zbyt ogólny opis problemu, brak dokładnej lokalizacji lub brak informacji o postępach dla najemcy. Automatyzacja ma zminimalizować te błędy.
+
+Przepisy: Ważne jest, aby proces spełniał wymogi prawne, np. w zakresie prowadzenia rejestru zgłoszeń i weryfikacji, czy zaangażowani dostawcy spełniają wymogi ubezpieczeniowe."

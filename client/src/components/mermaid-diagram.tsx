@@ -23,24 +23,38 @@ export default function MermaidDiagram({ code, className = '', onError }: Mermai
   useEffect(() => {
     if (!code || !containerRef.current) return;
 
+    const container = containerRef.current;
+    let isCancelled = false;
+
     const renderDiagram = async () => {
       setIsRendering(true);
       setError(null);
 
       try {
-        // Clear previous content
-        if (containerRef.current) {
-          containerRef.current.innerHTML = '';
+        // Clear previous content safely
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
         }
 
+        // Check if component was unmounted
+        if (isCancelled) return;
+
         // Generate unique ID for this diagram
-        const diagramId = `mermaid-diagram-${Date.now()}`;
+        const diagramId = `mermaid-diagram-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         
         // Validate and render the Mermaid code
         const { svg } = await mermaid.render(diagramId, code);
         
-        if (containerRef.current) {
-          containerRef.current.innerHTML = svg;
+        // Check again if component was unmounted
+        if (isCancelled || !container.parentNode) return;
+        
+        // Create temporary div to parse SVG
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = svg;
+        const svgElement = tempDiv.querySelector('svg');
+        
+        if (svgElement && container.parentNode) {
+          container.appendChild(svgElement);
         }
       } catch (err) {
         console.error('Mermaid rendering error:', err);
@@ -49,22 +63,36 @@ export default function MermaidDiagram({ code, className = '', onError }: Mermai
         onError?.(errorMessage);
         
         // Show error message in container
-        if (containerRef.current) {
-          containerRef.current.innerHTML = `
-            <div class="flex items-center justify-center p-8 border-2 border-dashed border-red-300 rounded-lg bg-red-50">
-              <div class="text-center">
-                <div class="text-red-600 font-medium">Diagram Rendering Error</div>
-                <div class="text-red-500 text-sm mt-1">${errorMessage}</div>
-              </div>
+        if (!isCancelled && container.parentNode) {
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'flex items-center justify-center p-8 border-2 border-dashed border-red-300 rounded-lg bg-red-50';
+          errorDiv.innerHTML = `
+            <div class="text-center">
+              <div class="text-red-600 font-medium">Diagram Rendering Error</div>
+              <div class="text-red-500 text-sm mt-1">${errorMessage}</div>
             </div>
           `;
+          container.appendChild(errorDiv);
         }
       } finally {
-        setIsRendering(false);
+        if (!isCancelled) {
+          setIsRendering(false);
+        }
       }
     };
 
     renderDiagram();
+
+    // Cleanup function
+    return () => {
+      isCancelled = true;
+      // Clean up any DOM nodes safely
+      if (container && container.parentNode) {
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+      }
+    };
   }, [code, onError]);
 
   return (
