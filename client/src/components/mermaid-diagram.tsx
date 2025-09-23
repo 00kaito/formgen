@@ -88,25 +88,51 @@ export default function MermaidDiagram({ code, className = '', onError }: Mermai
       isCancelled = true;
       // Clean up any DOM nodes safely
       if (container && container.parentNode) {
-        while (container.firstChild) {
-          container.removeChild(container.firstChild);
+        try {
+          // More defensive cleanup - just clear content
+          container.textContent = '';
+        } catch (e) {
+          // Ignore cleanup errors during unmounting
+          console.debug('Cleanup error (safe to ignore):', e);
         }
       }
     };
   }, [code, onError]);
 
   return (
-    <div 
-      ref={containerRef} 
-      className={`mermaid-container ${className} ${isRendering ? 'opacity-50' : ''}`}
-      data-testid="mermaid-diagram"
-    >
-      {isRendering && (
-        <div className="flex items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-            <div className="text-gray-600">Rendering diagram...</div>
+    <div className={`mermaid-wrapper ${className}`}>
+      <div 
+        ref={containerRef} 
+        className={`mermaid-container overflow-auto max-h-[600px] max-w-full border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-900 ${isRendering ? 'opacity-50' : ''}`}
+        data-testid="mermaid-diagram"
+        style={{
+          cursor: 'grab',
+          userSelect: 'none'
+        }}
+        onMouseDown={(e) => {
+          if (e.button === 0) { // Left mouse button
+            e.currentTarget.style.cursor = 'grabbing';
+          }
+        }}
+        onMouseUp={(e) => {
+          e.currentTarget.style.cursor = 'grab';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.cursor = 'grab';
+        }}
+      >
+        {isRendering && (
+          <div className="flex items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+              <div className="text-gray-600">Rendering diagram...</div>
+            </div>
           </div>
+        )}
+      </div>
+      {!isRendering && !error && (
+        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+          💡 Użyj scroll lub przeciągnij, aby przesuwać diagram
         </div>
       )}
     </div>
