@@ -159,6 +159,20 @@ export default function ProcessFlowModal({
                     <Eye className="w-4 h-4 mr-2" />
                     {showPreview ? 'Hide Preview' : 'Show Preview'}
                   </Button>
+
+                  <Button 
+                    variant="outline" 
+                    onClick={handleGenerate} 
+                    disabled={generateMutation.isPending}
+                    data-testid="button-regenerate-ai"
+                  >
+                    {generateMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Bot className="w-4 h-4 mr-2" />
+                    )}
+                    AI Analiza
+                  </Button>
                 </>
               )}
             </div>
