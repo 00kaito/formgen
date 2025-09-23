@@ -2,7 +2,11 @@ import { type FormTemplate, type InsertFormTemplate, type FormResponse, type Ins
 import { randomUUID } from "crypto";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
+import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { eq, desc, sql, count, and, gte, lt } from "drizzle-orm";
+
+
 
 export interface IStorage {
   // Form Templates
@@ -373,19 +377,27 @@ export class MemStorage implements IStorage {
 }
 
 export class PostgreSQLStorage implements IStorage {
-  private db: ReturnType<typeof drizzle>;
+  private db: ReturnType<typeof drizzle> | ReturnType<typeof drizzlePostgres>;
 
-  constructor() {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL environment variable is required for PostgreSQL storage");
-    }
-    
+constructor() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL environment variable is required for PostgreSQL storage");
+  }
+  
+  // Wybór drivera na podstawie DB_TYPE
+  if (process.env.DB_TYPE === 'postgres') {
+    const sqlClient = postgres(process.env.DATABASE_URL);
+    this.db = drizzlePostgres(sqlClient);
+    console.log("[DB] Using local PostgreSQL driver");
+  } else {
     const sqlClient = neon(process.env.DATABASE_URL);
     this.db = drizzle(sqlClient);
-    
-    // Initialize admin user
-    this.initializeAdminUser();
+    console.log("[DB] Using Neon HTTP driver");
   }
+  
+  // Initialize admin user
+  this.initializeAdminUser();
+}
 
   private async initializeAdminUser() {
     try {

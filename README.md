@@ -1,3 +1,9 @@
+#Po uruchomionu wymagana migracja i ponowne uruchominieie:
+docker-compose up --build
+DATABASE_URL=postgres://formbuilder_user:formbuilder_password123@formgen-db:5433/formbuilder npm run db:push
+docker-compose down
+docker-compose up -d
+
 # Polish Form Builder System
 
 A comprehensive full-stack form builder application with admin authentication, drag-and-drop form creation, file uploads, analytics, and robust backup system. Features AI-powered follow-up questions, draft saving, webhook integration for external notifications, and responsive design.
