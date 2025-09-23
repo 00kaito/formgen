@@ -232,37 +232,42 @@ Respond only with valid JSON.`;
   ): Promise<string> {
     const formattedData = this.formatFormDataForAI(template, response);
 
-    const prompt = `You are a business process analyst. Based on the form submission below, create a Mermaid flowchart that represents the process workflow described by the user.
+    const prompt = `You are an expert business process analyst. Analyze the specific form data below and create a detailed Mermaid flowchart that represents the ACTUAL process workflow described in the user's responses.
 
-The flowchart should:
-* Show the logical flow of the described process
-* Include decision points where applicable
-* Show different paths based on conditions
-* Use proper Mermaid flowchart syntax
-* Be clear and easy to understand
-* Focus on the main process steps and decision points
+CRITICAL INSTRUCTIONS:
+1. ANALYZE the specific answers provided in the form data - don't create a generic process
+2. CREATE a flowchart based on the ACTUAL activities, steps, decisions, and conditions mentioned by the user
+3. IDENTIFY specific process steps, decision points, responsible parties, conditions, and outcomes from the form responses
+4. INCLUDE specific names, departments, systems, tools, and procedures mentioned in the form
+5. CREATE decision points based on ACTUAL conditions, criteria, or choices mentioned in the responses
+6. SHOW parallel processes if multiple departments/people are involved simultaneously
+7. REFLECT the complexity and reality of the described process - not a simplified generic version
 
-**Form Data:**
+**SPECIFIC FORM DATA TO ANALYZE:**
 ### FORMULARZ DATA START ###
 ${formattedData}
 ### FORMULARZ DATA END ###
 
-Please create a Mermaid flowchart using the 'flowchart TD' (top-down) format. Use:
-- Rectangles for process steps: [Step Name]
-- Diamonds for decisions: {Decision?}
-- Different shapes for different types of actions
-- Proper connections with labels where needed
+ANALYZE THE ABOVE DATA AND:
+- Extract specific process steps mentioned by the user
+- Identify actual decision criteria and conditions
+- Note responsible parties, departments, or roles
+- Find dependencies, prerequisites, and sequence requirements
+- Identify different paths, exceptions, and alternative flows
+- Include specific tools, systems, or documents mentioned
+- Capture timing, deadlines, or sequence requirements
 
-Return ONLY the Mermaid code, nothing else. Example format:
-flowchart TD
-    A[Start] --> B[Process Step]
-    B --> C{Decision?}
-    C -->|Yes| D[Action 1]
-    C -->|No| E[Action 2]
-    D --> F[End]
-    E --> F[End]
+Create a Mermaid flowchart using 'flowchart TD' format that shows:
+- [Process Steps] in rectangles with SPECIFIC names from the form
+- {Actual Decision Points?} in diamonds based on REAL conditions from the responses  
+- ((Start/End Points)) as circles
+- Different paths based on ACTUAL conditions and scenarios described
+- Subprocesses if mentioned: [Subprocess Name]
+- Parallel processes with --> and separate branches
 
-Respond with only valid Mermaid flowchart code.`;
+Use specific terminology and names from the form responses. Make the flowchart detailed and realistic based on the actual described process.
+
+Return ONLY valid Mermaid flowchart code, nothing else.`;
 
     try {
       // Check if API key is available, if not use fallback
