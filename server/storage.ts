@@ -2,6 +2,8 @@ import { type FormTemplate, type InsertFormTemplate, type FormResponse, type Ins
 import { randomUUID } from "crypto";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
+import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { eq, desc, sql, count, and, gte, lt } from "drizzle-orm";
 
 
@@ -375,17 +377,23 @@ export class MemStorage implements IStorage {
 }
 
 export class PostgreSQLStorage implements IStorage {
-  private db: ReturnType<typeof drizzle>;
+  private db: ReturnType<typeof drizzle> | ReturnType<typeof drizzlePostgres>;
 
 constructor() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL environment variable is required for PostgreSQL storage");
   }
   
-  // Use Neon HTTP driver for Replit PostgreSQL database
-  const sqlClient = neon(process.env.DATABASE_URL);
-  this.db = drizzle(sqlClient);
-  console.log("[DB] Using Neon HTTP driver for Replit PostgreSQL");
+  // Wybór drivera na podstawie DB_TYPE
+  if (process.env.DB_TYPE === 'postgres') {
+    const sqlClient = postgres(process.env.DATABASE_URL);
+    this.db = drizzlePostgres(sqlClient);
+    console.log("[DB] Using local PostgreSQL driver");
+  } else {
+    const sqlClient = neon(process.env.DATABASE_URL);
+    this.db = drizzle(sqlClient);
+    console.log("[DB] Using Neon HTTP driver");
+  }
   
   // Initialize admin user
   this.initializeAdminUser();
